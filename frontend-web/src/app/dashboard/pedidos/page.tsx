@@ -15,6 +15,7 @@ interface Pedido {
     total: string; // vem como string do DRF DecimalField
     total_itens: number;
     pago: boolean;
+    receita_medica?: string;
 }
 
 export default function PedidosPage() {

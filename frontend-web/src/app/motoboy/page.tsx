@@ -15,7 +15,7 @@ export default function MotoboyDashboard() {
     const [filter, setFilter] = useState<'DISPONIVEIS' | 'MINHAS'>('DISPONIVEIS');
 
     useEffect(() => {
-        if (!user || user.tipo_usuario !== 'MOTOBOY') {
+        if (!user || user.tipo_usuario !== 'ENTREGADOR') {
             router.push('/login');
             return;
         }
@@ -137,8 +137,8 @@ export default function MotoboyDashboard() {
                         <button
                             onClick={() => setFilter('DISPONIVEIS')}
                             className={`flex-1 px-6 py-4 font-bold transition-colors ${filter === 'DISPONIVEIS'
-                                    ? 'text-orange-600 border-b-2 border-orange-600'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'text-orange-600 border-b-2 border-orange-600'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Entregas Disponíveis
@@ -146,8 +146,8 @@ export default function MotoboyDashboard() {
                         <button
                             onClick={() => setFilter('MINHAS')}
                             className={`flex-1 px-6 py-4 font-bold transition-colors ${filter === 'MINHAS'
-                                    ? 'text-orange-600 border-b-2 border-orange-600'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                ? 'text-orange-600 border-b-2 border-orange-600'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             Minhas Entregas

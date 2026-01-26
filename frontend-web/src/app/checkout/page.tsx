@@ -311,9 +311,12 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
         setLoading(true);
 
         try {
-            await api.post('/auth/login/', { email, password: senha });
-            const userRes = await api.get('/auth/me/');
-            login(userRes.data);
+            const loginRes = await api.post('/auth/login/', { email, password: senha });
+            const token = loginRes.data.access || loginRes.data.token;
+            const userRes = await api.get('/auth/me/', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            login(userRes.data, token);
             onSuccess();
         } catch (error: any) {
             console.error(error);

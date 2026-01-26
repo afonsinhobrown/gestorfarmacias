@@ -138,7 +138,7 @@ export default function LoginPage() {
 
                                 return (
                                     <>
-                                        <div className={`w-20 h-20 bg-gradient-to-br ${cores[tipoConfig?.cor]} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
+                                        <div className={`w-20 h-20 bg-gradient-to-br ${tipoConfig?.cor ? cores[tipoConfig.cor] : 'from-gray-600 to-gray-700'} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
                                             {IconComponent && <IconComponent size={40} className="text-white" />}
                                         </div>
                                         <h2 className="text-2xl font-bold text-gray-900">
@@ -183,7 +183,7 @@ export default function LoginPage() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className={`w-full py-3 bg-gradient-to-r ${cores[tipos.find(t => t.tipo === tipoSelecionado)?.cor]} text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50`}
+                                className={`w-full py-3 bg-gradient-to-r ${tipoSelecionado ? cores[tipos.find(t => t.tipo === tipoSelecionado)?.cor || 'blue'] : 'from-gray-600 to-gray-700'} text-white rounded-lg font-bold hover:shadow-lg transition-all disabled:opacity-50`}
                             >
                                 {loading ? 'Entrando...' : 'ENTRAR'}
                             </button>

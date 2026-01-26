@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface User {
+export interface User {
     id: number;
     email: string;
     first_name: string;
     last_name: string;
     tipo_usuario: 'ADMIN' | 'FARMACIA' | 'CLIENTE' | 'ENTREGADOR';
     foto_perfil?: string;
+    telefone?: string;
 }
 
 interface AuthState {
