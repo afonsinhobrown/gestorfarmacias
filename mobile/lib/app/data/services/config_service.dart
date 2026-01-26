@@ -22,29 +22,37 @@ class ConfigService extends GetxService {
   }
 
   String _getDefaultUrl() {
-    if (kIsWeb) return 'http://localhost:8000/api/v1';
+    if (kIsWeb) return 'http://localhost:8000/api/v1/';
     
     // Windows Desktop
     if (defaultTargetPlatform == TargetPlatform.windows) {
       return 'http://localhost:8000/api/v1/';
     }
     
-    // Para Android - IMPORTANTE: Trocar este IP pelo IP da sua máquina
-    // Execute 'ipconfig' no Windows e use o IPv4 da sua rede Wi-Fi
-    // Exemplo: Se seu PC está em 192.168.100.3, use esse IP aqui
-    return 'http://192.168.100.3:8000/api/v1/';
+    // Produção - URL do PythonAnywhere
+    return 'https://afonsinhobrown.pythonanywhere.com/api/v1/';
   }
 
   void updateBaseUrl(String newUrl) {
+    newUrl = newUrl.trim();
+    if (newUrl.isEmpty) return;
+
     if (!newUrl.startsWith('http')) {
-      newUrl = 'http://$newUrl';
+      newUrl = 'https://$newUrl';
     }
+    
     if (!newUrl.contains('/api/v1')) {
-      newUrl = '$newUrl/api/v1';
+      if (newUrl.endsWith('/')) {
+        newUrl = '${newUrl}api/v1';
+      } else {
+        newUrl = '$newUrl/api/v1';
+      }
     }
+    
     if (!newUrl.endsWith('/')) {
       newUrl = '$newUrl/';
     }
+    
     baseUrl.value = newUrl;
     _box.write('base_url', newUrl);
   }
