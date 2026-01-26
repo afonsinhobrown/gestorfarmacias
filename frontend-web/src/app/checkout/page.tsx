@@ -63,7 +63,7 @@ export default function CheckoutPage() {
         setLoading(true);
 
         // Pegar farmacia_id do primeiro item (todos itens são da mesma farmácia)
-        const farmaciaId = items[0]?.farmacia_id || items[0]?.farmacia;
+        const farmaciaId = items[0]?.farmacia_id;
 
         if (!farmaciaId) {
             toast.error('Erro: Farmácia não identificada. Por favor, adicione os produtos novamente.');
