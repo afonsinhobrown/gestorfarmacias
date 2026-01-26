@@ -13,6 +13,7 @@ interface ResultadoBusca {
     produto_nome: string;
     produto_descricao: string;
     farmacia_nome: string;
+    farmacia_id: number;
     preco_venda: number;
     is_disponivel: boolean;
     produto_imagem: string | null;
