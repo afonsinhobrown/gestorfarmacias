@@ -1,0 +1,78 @@
+# Core Django
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+django-filter>=23.0
+djangorestframework-simplejwt>=5.3.0
+
+# Database
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# Cache & Queue
+redis==5.0.1
+django-redis==5.4.0
+celery==5.3.6
+
+# WebSockets
+channels==4.0.0
+channels-redis==4.1.0
+daphne==4.0.0
+
+# Image Processing
+Pillow==10.2.0
+
+# QR Code
+qrcode==7.4.2
+python-qrcode[pil]==7.4.2
+
+# Geolocation
+geopy==2.4.1
+googlemaps==4.10.0
+
+# Payments
+stripe==7.11.0
+paypalrestsdk==1.13.1
+pycryptodome==3.19.0  # M-Pesa encryption
+
+# Notifications
+firebase-admin==6.4.0
+
+# Utilities
+python-decouple==3.8
+python-dotenv==1.0.0
+pytz==2023.3.post1
+requests==2.31.0
+
+# PDF Generation
+reportlab==4.0.9
+WeasyPrint==60.2
+
+# Excel Export
+openpyxl==3.1.2
+xlsxwriter==3.1.9
+
+# API Documentation
+drf-spectacular==0.27.0
+
+# Security
+cryptography==42.0.0
+
+# Monitoring
+sentry-sdk==1.39.2
+
+# Testing
+pytest==7.4.4
+pytest-django==4.7.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+faker==22.0.0
+
+# Code Quality
+black==23.12.1
+flake8==7.0.0
+isort==5.13.2
+
+# WSGI Server
+gunicorn==21.2.0
+uvicorn==0.27.0
