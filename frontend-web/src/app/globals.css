@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222.2 84% 4.9%);
+
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222.2 84% 4.9%);
+
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222.2 84% 4.9%);
+
+  --color-primary: hsl(221.2 83.2% 53.3%);
+  --color-primary-foreground: hsl(210 40% 98%);
+
+  --color-secondary: hsl(210 40% 96.1%);
+  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+
+  --color-muted: hsl(210 40% 96.1%);
+  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+
+  --color-accent: hsl(210 40% 96.1%);
+  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(210 40% 98%);
+
+  --color-border: hsl(214.3 31.8% 91.4%);
+  --color-input: hsl(214.3 31.8% 91.4%);
+  --color-ring: hsl(221.2 83.2% 53.3%);
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}
+
+/* Modo escuro (Dark Mode) via media query ou seletor de dados */
+/* Dark mode removido para forçar tema claro */
+
+/* Utility classes que usam as variáveis do tema */
+@layer base {
+  body {
+    background-color: #ffffff;
+    color: #000000;
+    pointer-events: auto !important;
+  }
+
+  /* Hack ULTRA-AGRESSIVO para matar overlays fantasmas do Radix/Sonner */
+  [data-radix-pointer-down-scrim],
+  [data-radix-focus-guard],
+  [data-sonner-toaster]~div[style*="position: fixed"],
+  div[style*="position: fixed"][style*="inset: 0px"],
+  div[style*="pointer-events: none"][style*="position: fixed"] {
+    display: none !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+
+  /* Forçar backdrop transparente */
+  [class*="backdrop"],
+  [class*="overlay"],
+  [data-state="open"]>div[style*="background"] {
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Garantir que body e root sejam sempre clicáveis */
+  body,
+  #__next,
+  #root {
+    pointer-events: auto !important;
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+}
