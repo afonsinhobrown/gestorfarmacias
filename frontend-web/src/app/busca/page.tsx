@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { Search, ShoppingCart, ArrowLeft, X } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
@@ -19,7 +19,7 @@ interface ResultadoBusca {
     produto_imagem: string | null;
 }
 
-export default function BuscaPage() {
+function BuscaContent() {
     const searchParams = useSearchParams();
     const queryInicial = searchParams.get('q') || '';
 
@@ -255,5 +255,17 @@ export default function BuscaPage() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function BuscaPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="animate-spin text-blue-600 text-4xl">⏳</div>
+            </div>
+        }>
+            <BuscaContent />
+        </Suspense>
     );
 }
