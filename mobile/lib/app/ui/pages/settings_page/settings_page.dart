@@ -25,13 +25,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    // Extrai apenas o IP do baseUrl atual
-    String currentUrl = _config.baseUrl.value;
-    if (currentUrl.contains('://')) {
-      String afterProtocol = currentUrl.split('://')[1];
-      String ip = afterProtocol.split(':')[0];
-      _ipController.text = ip;
-    }
+    _ipController.text = _config.baseUrl.value;
     _loadFarmaciaData();
   }
 
@@ -72,18 +66,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _saveConfig() {
-    String ip = _ipController.text.trim();
-    if (ip.isEmpty) {
-      Get.snackbar('Erro', 'Por favor, insira um endereço IP válido');
+    String input = _ipController.text.trim();
+    if (input.isEmpty) {
+      Get.snackbar('Erro', 'Por favor, insira uma URL ou IP válido');
       return;
     }
     
-    String newUrl = 'http://$ip:8000/api/v1/';
-    _config.updateBaseUrl(newUrl);
+    _config.updateBaseUrl(input);
     
     Get.snackbar(
       'Sucesso', 
-      'Servidor configurado! Teste a conexão antes de fazer login.',
+      'Servidor configurado! URL atual:\n${_config.baseUrl.value}',
       backgroundColor: Colors.green[100],
       duration: Duration(seconds: 4)
     );
@@ -91,19 +84,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _resetToDefault() {
     _config.resetToDefault();
-    String currentUrl = _config.baseUrl.value;
-    if (currentUrl.contains('://')) {
-      String afterProtocol = currentUrl.split('://')[1];
-      String ip = afterProtocol.split(':')[0];
-      _ipController.text = ip;
-    }
+    _ipController.text = _config.baseUrl.value;
     Get.snackbar('Info', 'Configuração restaurada para o padrão');
   }
 
   Future<void> _testConnection() async {
-    String ip = _ipController.text.trim();
-    if (ip.isEmpty) {
-      Get.snackbar('Erro', 'Digite um IP primeiro');
+    String url = _ipController.text.trim();
+    if (url.isEmpty) {
+      Get.snackbar('Erro', 'Digite a URL primeiro');
       return;
     }
 
@@ -113,10 +101,14 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     try {
-      final testUrl = 'http://$ip:8000/api/v1/';
+      // Usa a lógica do ConfigService para normalizar a URL temporariamente
+      String testUrl = url;
+      if (!testUrl.startsWith('http')) testUrl = 'https://$testUrl';
+      if (!testUrl.contains('/api/v1')) testUrl = testUrl.endsWith('/') ? '${testUrl}api/v1/' : '$testUrl/api/v1/';
+
       final dio = Dio();
       dio.options.baseUrl = testUrl;
-      dio.options.connectTimeout = Duration(seconds: 5);
+      dio.options.connectTimeout = Duration(seconds: 10);
       
       final response = await dio.get('auth/login/'); 
       
@@ -125,7 +117,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (response.statusCode == 405 || response.statusCode == 200 || response.statusCode == 400) {
         Get.snackbar(
           'Sucesso! ✅',
-          'Servidor encontrado em $testUrl\nVocê pode fazer login agora!',
+          'Servidor encontrado!\nLink: $testUrl',
           backgroundColor: Colors.green[100],
           duration: Duration(seconds: 5),
         );
@@ -136,7 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
       Get.back(); 
       Get.snackbar(
         'Erro de Conexão ❌',
-        'Não foi possível conectar ao servidor.\n\nVerifique:\n1. O IP está correto?\n2. O servidor está rodando?\n3. Você está na mesma rede Wi-Fi?',
+        'Não foi possível conectar ao servidor.\n\nVerifique a URL e sua conexão.',
         backgroundColor: Colors.red[100],
         duration: Duration(seconds: 6),
       );
@@ -224,20 +216,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Endereço IP do Servidor',
+                    'URL do Servidor',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[700]),
                   ),
                   SizedBox(height: 10),
                   TextField(
                     controller: _ipController,
                     decoration: InputDecoration(
-                      hintText: 'Ex: 192.168.100.3',
+                      hintText: 'Ex: https://dominio.com',
                       prefixIcon: Icon(Icons.dns, color: Colors.blue[800]),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: Colors.grey[50],
                     ),
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
                   ),
                   SizedBox(height: 20),
                   Row(
@@ -246,7 +237,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         child: ElevatedButton.icon(
                           onPressed: _saveConfig,
                           icon: Icon(Icons.save, color: Colors.white),
-                          label: Text('SALVAR IP', style: TextStyle(color: Colors.white)),
+                          label: Text('SALVAR URL', style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue[900],
                             minimumSize: Size(double.infinity, 50),
@@ -335,7 +326,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Column(
                 children: [
                   Text('GestorFarma Pro', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700])),
-                  Text('Versão Business 1.1.0', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  Text('Versão Business 1.1.2', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                   SizedBox(height: 10),
                   Text('© 2026 - Gestão Farmacêutica Inteligente', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                 ],
