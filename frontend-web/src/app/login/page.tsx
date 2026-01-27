@@ -107,7 +107,7 @@ export default function LoginPage() {
                 {!tipoSelecionado ? (
                     /* Seleção de Tipo */
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {tipos.map((tipo) => (
+                        {tipos.filter(t => t.tipo !== 'CLIENTE').map((tipo) => (
                             <button
                                 key={tipo.tipo}
                                 onClick={() => setTipoSelecionado(tipo.tipo)}

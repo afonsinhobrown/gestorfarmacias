@@ -179,7 +179,7 @@ export default function CadastrarPage() {
                 {!tipoSelecionado ? (
                     /* Seleção de Tipo */
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {tipos.map((tipo) => (
+                        {tipos.filter(t => t.tipo !== 'CLIENTE').map((tipo) => (
                             <button
                                 key={tipo.tipo}
                                 onClick={() => setTipoSelecionado(tipo.tipo)}
