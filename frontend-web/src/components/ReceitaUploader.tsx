@@ -113,10 +113,7 @@ export default function ReceitaUploader({ onImageSelect, currentImage }: Receita
     };
 
     return (
-        <div className="space-y-4">
-            <label className="block text-sm font-semibold text-gray-700">
-                Receita Médica (Opcional)
-            </label>
+        <div className="space-y-2">
 
             {/* Preview da imagem */}
             {preview && (
@@ -177,7 +174,7 @@ export default function ReceitaUploader({ onImageSelect, currentImage }: Receita
                     <button
                         type="button"
                         onClick={startWebcam}
-                        className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition font-medium"
+                        className="flex items-center justify-center gap-2 px-3 py-2 border-2 border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition font-bold text-[10px] uppercase"
                     >
                         <Camera className="w-5 h-5" />
                         Usar Câmera
@@ -186,7 +183,7 @@ export default function ReceitaUploader({ onImageSelect, currentImage }: Receita
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition font-medium"
+                        className="flex items-center justify-center gap-2 px-3 py-2 border-2 border-green-500 text-green-500 rounded-lg hover:bg-green-50 transition font-bold text-[10px] uppercase"
                     >
                         <Upload className="w-5 h-5" />
                         Fazer Upload
@@ -199,12 +196,12 @@ export default function ReceitaUploader({ onImageSelect, currentImage }: Receita
                 <div
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 hover:bg-blue-50 transition cursor-pointer"
+                    className="border-2 border-dashed border-gray-700 rounded-lg p-3 text-center hover:border-blue-400 hover:bg-white/5 transition cursor-pointer"
                     onClick={() => fileInputRef.current?.click()}
                 >
-                    <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                    <p className="text-sm text-gray-600">
-                        Arraste e solte a imagem aqui ou clique para selecionar
+                    <Upload className="w-6 h-6 mx-auto text-gray-600 mb-1" />
+                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-tighter">
+                        Arraste ou Clique para Receita
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
                         Formatos: JPG, PNG (máx. 5MB)

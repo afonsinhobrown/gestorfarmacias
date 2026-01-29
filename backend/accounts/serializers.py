@@ -8,16 +8,23 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer para o modelo de Usuário."""
     
     password = serializers.CharField(write_only=True)
+    nome = serializers.CharField(source='get_full_name', read_only=True)
+    cargo = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = (
-            'id', 'email', 'password', 'first_name', 'last_name',
-            'tipo_usuario', 'telefone', 'foto_perfil', 'foto_documento',
+            'id', 'email', 'password', 'first_name', 'last_name', 'nome',
+            'tipo_usuario', 'cargo', 'telefone', 'foto_perfil', 'foto_documento',
             'endereco', 'cidade', 'provincia', 'codigo_postal',
             'latitude', 'longitude'
         )
         read_only_fields = ('id', 'is_verificado', 'is_active', 'is_staff')
+    
+    def get_cargo(self, obj):
+        if hasattr(obj, 'funcionario_perfil'):
+            return obj.funcionario_perfil.cargo
+        return obj.tipo_usuario
     
     def create(self, validated_data):
         """Cria e retorna um novo usuário com senha criptografada."""

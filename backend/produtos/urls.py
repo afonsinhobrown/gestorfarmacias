@@ -18,7 +18,10 @@ urlpatterns = [
 ]
 
 from rest_framework.routers import DefaultRouter
-from .views import EntradaEstoqueViewSet, AjusteEstoqueView, EstoqueHistoricoView, ReajustePrecoView
+from .views import (
+    EntradaEstoqueViewSet, AjusteEstoqueView, EstoqueHistoricoView, 
+    ReajustePrecoView, TransferenciaEstoqueView, MovimentacaoFarmaciaView
+)
 
 router = DefaultRouter()
 router.register(r'entradas', EntradaEstoqueViewSet, basename='entrada-estoque')
@@ -26,5 +29,7 @@ router.register(r'entradas', EntradaEstoqueViewSet, basename='entrada-estoque')
 urlpatterns += [
     path('ajuste/', AjusteEstoqueView.as_view(), name='estoque_ajuste'),
     path('reajuste/', ReajustePrecoView.as_view(), name='estoque_reajuste'),
+    path('transferencia/', TransferenciaEstoqueView.as_view(), name='estoque_transferencia'),
     path('meu-estoque/<int:pk>/historico/', EstoqueHistoricoView.as_view(), name='estoque_historico'),
+    path('kardex/', MovimentacaoFarmaciaView.as_view(), name='kardex_global'),
 ] + router.urls

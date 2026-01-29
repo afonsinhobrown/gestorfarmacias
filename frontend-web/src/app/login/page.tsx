@@ -216,13 +216,27 @@ export default function LoginPage() {
                             </div>
                         </div>
 
-                        <div className="mt-6 text-center">
+                        <div className="mt-6 text-center space-y-3">
                             <p className="text-sm text-gray-600">
                                 Não tem conta?{' '}
                                 <Link href="/cadastrar" className="text-blue-600 font-bold hover:underline">
                                     Cadastre-se
                                 </Link>
                             </p>
+
+                            {tipoSelecionado === 'FARMACIA' && (
+                                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                    <p className="text-sm font-bold text-emerald-900 mb-2">
+                                        🏥 Primeira vez aqui?
+                                    </p>
+                                    <Link
+                                        href="/register/farmacia"
+                                        className="inline-block px-6 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors text-sm"
+                                    >
+                                        Cadastrar Nova Farmácia
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

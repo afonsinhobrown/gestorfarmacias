@@ -26,30 +26,7 @@ class VendaBalcaoView(APIView):
                 
                 # Construir dados para o recibo fiscal com segurança
                 try:
-                    itens_recibo = []
-                    for item in pedido.itens.all():
-                        itens_recibo.append({
-                            'produto': item.produto.nome,
-                            'qtd': item.quantidade,
-                            'preco': str(item.preco_unitario),
-                            'total': str(item.total)
-                        })
-
-                    recibo_data = {
-                        'id': pedido.id,
-                        'numero_pedido': pedido.numero_pedido,
-                        'data': pedido.data_criacao,
-                        'total': str(pedido.total),
-                        'cliente': pedido.cliente.get_full_name() if pedido.cliente else (request.data.get('cliente') or 'Consumidor Final'),
-                        'itens': itens_recibo,
-                        'farmacia': {
-                            'nome': request.user.farmacia.nome,
-                            'endereco': request.user.farmacia.endereco,
-                            'telefone': request.user.farmacia.telefone_principal,
-                            'nuit': request.user.farmacia.nuit
-                        }
-                    }
-                    return Response(recibo_data, status=status.HTTP_201_CREATED)
+                    return Response(serializer.to_representation(pedido), status=status.HTTP_201_CREATED)
                 except Exception as e:
                     print(f"ERRO AO GERAR DADOS DO RECIBO: {e}")
                     # Mesmo se falhar ao gerar recibo, a venda foi criada
@@ -135,6 +112,162 @@ class AtualizarStatusPedidoView(APIView):
             "mensagem": f"Status do pedido #{pedido.numero_pedido} atualizado para {novo_status}",
             "status": pedido.status
         })
+
+class AnularPedidoView(APIView):
+    """Anula um pedido/venda e devolve itens ao estoque."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, pk):
+        pedido = generics.get_object_or_404(Pedido, pk=pk)
+        
+        # Validar farmácia
+        if pedido.farmacia != request.user.farmacia:
+             return Response({"erro": "Não autorizado"}, status=status.HTTP_403_FORBIDDEN)
+             
+        motivo = request.data.get('motivo', 'Anulação solicitada pelo usuário')
+        
+        try:
+            pedido.anular_venda(motivo=motivo, usuario=request.user)
+            return Response({"mensagem": f"Venda {pedido.numero_pedido} anulada com sucesso."})
+        except Exception as e:
+            return Response({"erro": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class ExtratoVendasView(APIView):
+    """Extrato de vendas detalhado com lucro (Estilo Primavera/ERP)."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from django.db.models import F, ExpressionWrapper, DecimalField, Sum
+        from .models import ItemPedido
+        
+        farmacia = request.user.farmacia
+        data_inicio = request.query_params.get('data_inicio')
+        data_fim = request.query_params.get('data_fim')
+        
+        pedidos = Pedido.objects.filter(farmacia=farmacia).exclude(status='CANCELADO').select_related('vendedor', 'cliente').order_by('-data_criacao')
+        
+        if data_inicio:
+            pedidos = pedidos.filter(data_criacao__date__gte=data_inicio)
+        if data_fim:
+            pedidos = pedidos.filter(data_criacao__date__lte=data_fim)
+            
+        dados = []
+        total_geral_faturado = 0
+        total_geral_lucro = 0
+        
+        for p in pedidos:
+            # Calcular lucro do pedido
+            # Lucro = Sum(Item.total - (Item.estoque.preco_custo * Item.quantidade))
+            lucro_pedido = 0
+            for item in p.itens.all():
+                custo = float(item.estoque.preco_custo if item.estoque else 0)
+                venda = float(item.preco_unitario)
+                lucro_item = (venda - custo) * item.quantidade
+                lucro_pedido += lucro_item
+            
+            total_geral_faturado += float(p.total)
+            total_geral_lucro += lucro_pedido
+            
+            dados.append({
+                'id': p.id,
+                'numero': p.numero_pedido,
+                'data': p.data_criacao,
+                'cliente': p.cliente.get_full_name() if p.cliente else 'Consumidor Final',
+                'vendedor': p.vendedor.get_full_name() if p.vendedor else 'Sistema',
+                'forma_pagamento': p.forma_pagamento,
+                'total': float(p.total),
+                'lucro': round(lucro_pedido, 2),
+                'margem': round((lucro_pedido / float(p.total) * 100), 2) if float(p.total) > 0 else 0
+            })
+            
+        return Response({
+            'periodo': {'inicio': data_inicio, 'fim': data_fim},
+            'resumo': {
+                'total_faturado': round(total_geral_faturado, 2),
+                'total_lucro': round(total_geral_lucro, 2),
+                'margem_media': round((total_geral_lucro / total_geral_faturado * 100), 2) if total_geral_faturado > 0 else 0
+            },
+            'vendas': dados
+        })
+
+class ComissaoView(APIView):
+    """Cálculo de comissões por vendedor."""
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from accounts.models import User
+        from django.db.models import Sum, Q
+        
+        try:
+            farmacia = request.user.farmacia
+            
+            if not farmacia:
+                return Response(
+                    {'error': 'Usuário não está associado a nenhuma farmácia'},
+                    status=400
+                )
+            
+            data_inicio = request.query_params.get('data_inicio')
+            data_fim = request.query_params.get('data_fim')
+            
+            # Filtro de pedidos concluídos e pagos
+            pedidos = Pedido.objects.filter(farmacia=farmacia, status='ENTREGUE', pago=True)
+            
+            if data_inicio:
+                pedidos = pedidos.filter(data_criacao__date__gte=data_inicio)
+            if data_fim:
+                pedidos = pedidos.filter(data_criacao__date__lte=data_fim)
+                
+            # Buscar usuários da farmácia (dono ou funcionários)
+            vendedores_qs = User.objects.filter(
+                Q(farmacia_perfil=farmacia) | 
+                Q(funcionario_perfil__farmacia=farmacia)
+            ).distinct()
+            
+            relatorio = []
+            total_geral_comissoes = 0
+            
+            for v in vendedores_qs:
+                # Filtrar itens de pedidos do vendedor que estão nos pedidos filtrados
+                itens_vendedor = ItemPedido.objects.filter(
+                    pedido__in=pedidos,
+                    pedido__vendedor=v
+                )
+                
+                stats = itens_vendedor.aggregate(
+                    total_vendas=Sum('subtotal'),
+                    total_comissoes=Sum('valor_comissao')
+                )
+                
+                faturado = stats['total_vendas'] or 0
+                comissao_acumulada = stats['total_comissoes'] or 0
+                qtd_vendas = pedidos.filter(vendedor=v).count()
+                
+                if faturado > 0:
+                    relatorio.append({
+                        'vendedor_id': v.id,
+                        'nome': v.get_full_name() or v.username,
+                        'total_vendas': float(faturado),
+                        'quantidade_vendas': qtd_vendas,
+                        'comissao': float(comissao_acumulada),
+                        # Média ponderada do percentual para exibição
+                        'percentual_medio': round((float(comissao_acumulada) / float(faturado) * 100), 2) if faturado > 0 else 0
+                    })
+                    total_geral_comissoes += float(comissao_acumulada)
+            
+            return Response({
+                'periodo': {'inicio': data_inicio, 'fim': data_fim},
+                'vendedores': sorted(relatorio, key=lambda x: x['total_vendas'], reverse=True),
+                'total_geral_comissoes': total_geral_comissoes
+            })
+        
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {'error': f'Erro ao processar relatório de comissões: {str(e)}'},
+                status=500
+            )
 
 class DashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated]

@@ -2,6 +2,46 @@ from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
+class Gibagio(models.Model):
+    """Entidade de Gestão Local (Gibagio)."""
+    nome = models.CharField(_('nome'), max_length=200)
+    codigo = models.CharField(_('código'), max_length=50, unique=True)
+    descricao = models.TextField(_('descrição'), blank=True)
+    is_ativo = models.BooleanField(_('ativo'), default=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nome
+
+class Licenca(models.Model):
+    """Modelo de Licença/Assinatura para Farmácias."""
+    class TipoLicenca(models.TextChoices):
+        MENSAL = 'MENSAL', _('Mensal')
+        ANUAL = 'ANUAL', _('Anual')
+        TRIAL = 'TRIAL', _('Teste (7 dias)')
+
+    farmacia = models.ForeignKey(
+        'Farmacia', 
+        on_delete=models.CASCADE, 
+        related_name='licencas'
+    )
+    tipo = models.CharField(
+        max_length=20, 
+        choices=TipoLicenca.choices, 
+        default=TipoLicenca.TRIAL
+    )
+    chave = models.CharField(_('chave da licença'), max_length=100, unique=True, blank=True)
+    data_inicio = models.DateField(_('data de início'))
+    data_fim = models.DateField(_('data de término'))
+    is_ativa = models.BooleanField(_('ativa'), default=True)
+    paga = models.BooleanField(_('paga'), default=False)
+
+    def is_expirada(self):
+        from django.utils import timezone
+        return timezone.now().date() > self.data_fim
+
+    def __str__(self):
+        return f"Licença {self.tipo} - {self.farmacia.nome}"
 
 class Farmacia(models.Model):
     """Model representing a pharmacy."""
@@ -9,8 +49,16 @@ class Farmacia(models.Model):
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='farmacia',
+        related_name='farmacia_perfil',
         verbose_name=_('usuário')
+    )
+    gibagio = models.ForeignKey(
+        Gibagio,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='farmacias',
+        verbose_name=_('Gibagio / Gestão Local')
     )
     nome = models.CharField(_('nome'), max_length=200)
     nome_fantasia = models.CharField(_('nome fantasia'), max_length=200, blank=True)
@@ -18,7 +66,7 @@ class Farmacia(models.Model):
     alvara = models.CharField(_('alvará'), max_length=100, blank=True)
     percentual_iva = models.DecimalField(_('Taxa IVA (%)'), max_digits=5, decimal_places=2, default=16.00)
     
-    # Contato
+    # ... (rest of contact and address fields)
     telefone_principal = models.CharField(_('telefone principal'), max_length=20)
     telefone_alternativo = models.CharField(_('telefone alternativo'), max_length=20, blank=True)
     email = models.EmailField(_('email'))

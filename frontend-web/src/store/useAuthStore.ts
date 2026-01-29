@@ -7,6 +7,7 @@ export interface User {
     first_name: string;
     last_name: string;
     tipo_usuario: 'ADMIN' | 'FARMACIA' | 'CLIENTE' | 'ENTREGADOR';
+    cargo?: string;
     foto_perfil?: string;
     telefone?: string;
 }

@@ -19,10 +19,18 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Interceptor para lidar com erros 401 (token expirado)
+// Interceptor para lidar com erros 401 (token expirado) ou erros de rede
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
+        // Detecção de erro de rede (Servidor Down)
+        if (!error.response || error.code === 'ERR_NETWORK') {
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/manutencao')) {
+                window.location.href = '/manutencao';
+            }
+            return Promise.reject(error);
+        }
+
         if (error.response?.status === 401) {
             // Implementar lógica de refresh token aqui futuramente
             if (typeof window !== 'undefined') {

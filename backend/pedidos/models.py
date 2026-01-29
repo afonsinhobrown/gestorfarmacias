@@ -25,6 +25,7 @@ class Pedido(models.Model):
         EMOLA = 'EMOLA', _('e-Mola')
         VISA_ONLINE = 'VISA_ONLINE', _('Visa/Mastercard Online')
         TRANSFERENCIA = 'TRANSFERENCIA', _('Transferência Bancária')
+        CREDITO = 'CREDITO', _('Crédito / Conta Corrente')
 
     numero_pedido = models.CharField(_('número do pedido'), max_length=20, unique=True, editable=False)
     cliente = models.ForeignKey(
@@ -66,6 +67,20 @@ class Pedido(models.Model):
     taxa_entrega = models.DecimalField(_('taxa de entrega'), max_digits=10, decimal_places=2, default=0)
     desconto = models.DecimalField(_('desconto'), max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(_('total'), max_digits=12, decimal_places=2, default=0)
+    
+    # Pagamento e Troco
+    valor_pago = models.DecimalField(_('valor pago'), max_digits=12, decimal_places=2, default=0)
+    troco = models.DecimalField(_('troco'), max_digits=12, decimal_places=2, default=0)
+    
+    # Responsável pela venda (POS)
+    vendedor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vendas_realizadas',
+        verbose_name=_('vendedor')
+    )
     
     # Entrega
     endereco_entrega = models.CharField(_('endereço de entrega'), max_length=255, blank=True)
@@ -133,6 +148,39 @@ class Pedido(models.Model):
         self.total = self.subtotal + self.taxa_entrega - self.desconto
         self.save(update_fields=['subtotal', 'total'])
 
+    def anular_venda(self, motivo=None, usuario=None):
+        """Cancela o pedido e devolve os itens ao estoque."""
+        if self.status == self.StatusPedido.CANCELADO:
+            return
+            
+        from django.db import transaction
+        from produtos.models import MovimentacaoEstoque
+        
+        with transaction.atomic():
+            for item in self.itens.all():
+                if item.estoque:
+                    item.estoque.quantidade += item.quantidade
+                    item.estoque.save()
+                    
+                    # Registrar Kardex
+                    MovimentacaoEstoque.objects.create(
+                        estoque=item.estoque,
+                        tipo='ENTRADA',
+                        quantidade=item.quantidade,
+                        quantidade_anterior=item.estoque.quantidade - item.quantidade,
+                        quantidade_nova=item.estoque.quantidade,
+                        usuario=usuario, 
+                        motivo=f"Anulação de Venda #{self.numero_pedido}",
+                        referencia_externa=self.numero_pedido
+                    )
+            
+            self.status = self.StatusPedido.CANCELADO
+            self.pago = False
+            if motivo:
+                self.motivo_cancelamento = motivo
+            self.data_cancelamento = timezone.now()
+            self.save()
+
 
 class ItemPedido(models.Model):
     """Order item model."""
@@ -161,6 +209,12 @@ class ItemPedido(models.Model):
     quantidade = models.PositiveIntegerField(_('quantidade'), default=1)
     preco_unitario = models.DecimalField(_('preço unitário'), max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(_('subtotal'), max_digits=10, decimal_places=2)
+    
+    # Venda Avulsa
+    is_avulso = models.BooleanField(_('venda avulsa'), default=False)
+    
+    # Comissões
+    valor_comissao = models.DecimalField(_('valor comissão'), max_digits=10, decimal_places=2, default=0)
     
     # Informações adicionais
     observacoes = models.TextField(_('observações'), blank=True)

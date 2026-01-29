@@ -37,8 +37,13 @@ class ConfigService extends GetxService {
     newUrl = newUrl.trim();
     if (newUrl.isEmpty) return;
 
-    if (!newUrl.startsWith('http')) {
-      newUrl = 'https://$newUrl';
+    if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+      // Se for IP, geralmente é HTTP
+      if (RegExp(r'^\d{1,3}\.').hasMatch(newUrl)) {
+         newUrl = 'http://$newUrl';
+      } else {
+         newUrl = 'https://$newUrl';
+      }
     }
     
     if (!newUrl.contains('/api/v1')) {

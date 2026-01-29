@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart' as dio;
 import 'dart:io';
+import 'package:ai_barcode_scanner/ai_barcode_scanner.dart';
 import '../../../data/providers/api_provider.dart';
 import '../customers_page/client_registration_page.dart';
 
@@ -24,6 +25,9 @@ class _PosPageState extends State<PosPage> {
   String selectedPayment = "DINHEIRO";
   bool isLoading = false;
   bool isSaving = false;
+  
+  double valorRecebido = 0;
+  double get troco => valorRecebido > 0 ? (valorRecebido - _total) : 0;
   File? receitaImage;  // Foto da receita médica
 
   @override
@@ -44,6 +48,28 @@ class _PosPageState extends State<PosPage> {
     } finally {
       setState(() => isLoading = false);
     }
+  }
+
+  Future<void> _openScanner() async {
+    await Get.to(() => AiBarcodeScanner(
+      onScan: (String code) {
+        setState(() {
+          searchQuery = code;
+        });
+        _fetchInventory().then((_) {
+          // Se houver apenas 1 resultado exato, adiciona direto
+          if (inventory.length == 1) {
+            final prod = inventory[0];
+            if (prod['produto_codigo'] == code || prod['produto_nome'].contains(code)) {
+              _addToCart(prod);
+              Get.back(); // Fecha scanner
+              Get.snackbar("Sucesso", "${prod['produto_nome']} adicionado!");
+            }
+          }
+        });
+      },
+      onDetect: (p0) {},
+    ));
   }
 
   Future<void> _fetchClients(String q) async {
@@ -89,6 +115,9 @@ class _PosPageState extends State<PosPage> {
         }).toList(),
         'cliente': clientSearch.isEmpty ? 'Consumidor Final' : clientSearch,
         'tipo_pagamento': selectedPayment,
+        'valor_pago': selectedPayment == "DINHEIRO" ? valorRecebido : _total,
+        'troco': selectedPayment == "DINHEIRO" ? troco : 0,
+        'vendedor': 'Operador Mobile', // Idealmente pegaria do AuthStore
       };
 
       print("Enviando venda: $payload");
@@ -180,6 +209,10 @@ class _PosPageState extends State<PosPage> {
                     decoration: InputDecoration(
                       hintText: "Buscar Medicamento...",
                       prefixIcon: Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.qr_code_scanner, color: Colors.blue[900]),
+                        onPressed: _openScanner,
+                      ),
                       filled: true, fillColor: Colors.white,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)
                     ),
@@ -319,9 +352,34 @@ class _PosPageState extends State<PosPage> {
                 dropdownColor: Colors.blue[900],
                 isExpanded: true,
                 style: TextStyle(color: Colors.white),
-                items: ["DINHEIRO", "POS", "MPESA", "EMOLA"].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                items: ["DINHEIRO", "POS", "MPESA", "EMOLA", "CREDITO"].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                 onChanged: (v) => setState(() => selectedPayment = v!),
               ),
+              if (selectedPayment == "DINHEIRO") ...[
+                SizedBox(height: 10),
+                TextField(
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    labelText: "VALOR RECEBIDO",
+                    labelStyle: TextStyle(color: Colors.white70, fontSize: 10),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
+                  ),
+                  onChanged: (v) => setState(() => valorRecebido = double.tryParse(v) ?? 0),
+                ),
+                if (troco > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("TROCO", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text("${troco.toStringAsFixed(2)} MT", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+              ],
               SizedBox(height: 10),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("TOTAL", style: TextStyle(color: Colors.white70)), Text("${_total.toStringAsFixed(2)} MT", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900))]),
               SizedBox(height: 15),

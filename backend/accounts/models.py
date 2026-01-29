@@ -100,6 +100,15 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.get_full_name()} ({self.email})"
     
+    @property
+    def farmacia(self):
+        """Retorna a farmácia vinculada ao usuário, seja como dono ou funcionário."""
+        if hasattr(self, 'farmacia_perfil'): # Se for o dono (OneToOne no model Farmacia)
+            return self.farmacia_perfil
+        if hasattr(self, 'funcionario_perfil'): # Se for funcionário
+            return self.funcionario_perfil.farmacia
+        return None
+    
     def get_full_name(self):
         """Return the first_name plus the last_name, with a space in between."""
         full_name = f"{self.first_name} {self.last_name}"

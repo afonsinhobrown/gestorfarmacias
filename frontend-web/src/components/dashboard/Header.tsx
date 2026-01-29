@@ -23,11 +23,11 @@ export function Header() {
 
                 <div className="flex items-center gap-3 pl-4 border-l">
                     <div className="text-right hidden sm:block">
-                        <p className="text-sm font-medium text-gray-900">
-                            {user?.first_name} {user?.last_name}
+                        <p className="text-sm font-bold text-gray-900">
+                            {user?.nome || user?.email}
                         </p>
-                        <p className="text-xs text-gray-500 capitalize">
-                            {user?.tipo_usuario.toLowerCase()}
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                            {user?.tipo_usuario}
                         </p>
                     </div>
                     <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">

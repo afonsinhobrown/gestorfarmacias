@@ -13,12 +13,18 @@ interface ProdutoEstoque {
     id: number;
     produto_nome: string;
     preco_venda: string;
+    preco_venda_avulso?: string;
     quantidade: number;
+    quantidade_minima?: number;
     lote: string;
+    permite_venda_avulsa?: boolean;
+    unidades_por_caixa?: number;
 }
 
 interface ItemCarrinho extends ProdutoEstoque {
     qtdVenda: number;
+    isAvulso: boolean;
+    precoVendaEfetivo: string;
 }
 
 export default function VendasPOSPage() {
@@ -33,6 +39,11 @@ export default function VendasPOSPage() {
     const [showCadastroCliente, setShowCadastroCliente] = useState(false);
     const [sugestoesClientes, setSugestoesClientes] = useState<any[]>([]);
     const [receitaFile, setReceitaFile] = useState<File | null>(null); // Receita médica
+
+    // Pagamento a Dinheiro
+    const totalVenda = carrinho.reduce((acc, item) => acc + (parseFloat(item.preco_venda) * item.qtdVenda), 0);
+    const [valorRecebido, setValorRecebido] = useState<string>('');
+    const troco = parseFloat(valorRecebido) > 0 ? parseFloat(valorRecebido) - totalVenda : 0;
 
     // Busca produtos no estoque local
     useEffect(() => {
@@ -50,7 +61,17 @@ export default function VendasPOSPage() {
         setLoadingBusca(true);
         try {
             const res = await api.get(`/produtos/meu-estoque/?search=${query}`);
-            setResultados(res.data.results || []);
+            const data = res.data.results || [];
+            setResultados(data);
+
+            // LOGICA AUTO-ADD PARA BARCODE
+            if (data.length === 1 && query.length >= 8) {
+                const item = data[0];
+                if (item.produto_codigo === query || /^\d+$/.test(query)) {
+                    adicionarAoCarrinho(item);
+                    setBusca('');
+                }
+            }
         } catch (error) {
             console.error(error);
         } finally {
@@ -58,27 +79,28 @@ export default function VendasPOSPage() {
         }
     };
 
-    const adicionarAoCarrinho = (prod: ProdutoEstoque) => {
-        // Verifica se tem estoque
+    const adicionarAoCarrinho = (prod: ProdutoEstoque, isAvulso: boolean = false) => {
         if (prod.quantidade <= 0) {
             toast.error(`"${prod.produto_nome}" está sem estoque!`);
             return;
         }
 
+        const precoEfetivo = isAvulso && prod.preco_venda_avulso ? prod.preco_venda_avulso : prod.preco_venda;
+
         setCarrinho(prev => {
-            const existente = prev.find(p => p.id === prod.id);
+            const itemKey = `${prod.id}-${isAvulso}`;
+            const existente = prev.find(p => `${p.id}-${p.isAvulso}` === itemKey);
+
             if (existente) {
                 if (existente.qtdVenda >= prod.quantidade) {
                     toast.error('Limite de estoque atingido!');
                     return prev;
                 }
-                return prev.map(p => p.id === prod.id ? { ...p, qtdVenda: p.qtdVenda + 1 } : p);
+                return prev.map(p => `${p.id}-${p.isAvulso}` === itemKey ? { ...p, qtdVenda: p.qtdVenda + 1 } : p);
             }
-            return [...prev, { ...prod, qtdVenda: 1 }];
+            return [...prev, { ...prod, qtdVenda: 1, isAvulso, precoVendaEfetivo: precoEfetivo }];
         });
 
-        // Se estava buscando, limpa para voltar ao catálogo original.
-        // Se já estava no catálogo (busca vazia), não faz nada para evitar recarregamento.
         if (busca.length > 0) {
             setBusca('');
         }
@@ -93,39 +115,34 @@ export default function VendasPOSPage() {
         setCarrinho(prev => prev.filter(p => p.id !== id));
     };
 
-    const totalVenda = carrinho.reduce((acc, item) => acc + (parseFloat(item.preco_venda) * item.qtdVenda), 0);
-
     const finalizarVenda = async () => {
         if (carrinho.length === 0) return;
         setFinalizando(true);
         try {
-            // 1. Criar pedido SEM receita (JSON normal)
             const payload = {
                 itens: carrinho.map(item => ({
                     estoque_id: item.id,
                     quantidade: item.qtdVenda,
-                    preco_unitario: item.preco_venda
+                    preco_unitario: item.precoVendaEfetivo,
+                    is_avulso: item.isAvulso
                 })),
                 cliente: cliente || 'Consumidor Final',
-                tipo_pagamento: metodoPagamento
+                tipo_pagamento: metodoPagamento,
+                valor_pago: parseFloat(valorRecebido) || totalVenda,
+                troco: troco > 0 ? troco : 0
             };
 
             const res = await api.post('/pedidos/venda-balcao/', payload);
             const pedidoId = res.data.id;
 
-            // 2. Se houver receita, fazer upload separado
             if (receitaFile && pedidoId) {
                 const formData = new FormData();
                 formData.append('receita_medica', receitaFile);
-
                 try {
                     await api.patch(`/pedidos/${pedidoId}/`, formData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
+                        headers: { 'Content-Type': 'multipart/form-data' },
                     });
                 } catch (uploadError) {
-                    console.error('Erro ao fazer upload da receita:', uploadError);
                     toast.warning('Venda criada, mas erro ao anexar receita');
                 }
             }
@@ -135,8 +152,8 @@ export default function VendasPOSPage() {
             setCarrinho([]);
             setCliente('');
             setReceitaFile(null);
+            setValorRecebido('');
         } catch (error: any) {
-            console.error(error);
             const errorMsg = error.response?.data?.detail || error.response?.data?.error || 'Erro ao finalizar venda.';
             toast.error(errorMsg);
         } finally {
@@ -179,87 +196,150 @@ export default function VendasPOSPage() {
                             <p className="text-sm font-medium text-gray-600 tracking-wide uppercase">Sincronizando estoque...</p>
                         </div>
                     ) : (
-                        <>
-                            {resultados.length === 0 ? (
-                                <div className="text-center py-24 text-gray-400 bg-gray-50/50 rounded-2xl border-2 border-dashed">
-                                    <Search size={48} className="mx-auto mb-4 opacity-5" />
-                                    <p className="text-lg font-bold text-gray-500">Nenhum produto encontrado</p>
-                                    <p className="text-sm">Tente buscar por outro nome ou código</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                    {resultados.map(prod => (
-                                        <button
-                                            key={prod.id}
-                                            onClick={() => adicionarAoCarrinho(prod)}
-                                            className="group flex flex-col bg-white border border-gray-100 rounded-2xl p-4 text-left transition-all hover:shadow-2xl hover:border-blue-500 hover:-translate-y-1 active:scale-95"
-                                        >
-                                            <div className="w-full aspect-square bg-gray-50 rounded-xl mb-4 flex items-center justify-center group-hover:bg-blue-50 transition-colors relative overflow-hidden shadow-inner">
-                                                <div className="text-blue-500 font-black text-3xl opacity-10 uppercase tracking-tighter">
-                                                    {prod.produto_nome.substring(0, 2)}
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {resultados.map(prod => {
+                                const isCritico = prod.quantidade <= (prod.quantidade_minima || 10);
+                                const statusColor = isCritico ? 'bg-rose-500' : 'bg-emerald-500';
+                                const statusText = isCritico ? 'CRÍTICO' : 'BOM';
+                                const statusMsg = isCritico ? `Stock abaixo do mínimo (${prod.quantidade_minima || 10} un)` : 'Stock em nível saudável';
+
+                                return (
+                                    <div
+                                        key={prod.id}
+                                        className="group flex flex-col bg-white border border-gray-100 rounded-2xl p-4 text-left transition-all hover:shadow-xl hover:border-blue-200 relative"
+                                        title={statusMsg}
+                                    >
+                                        <div className="w-full aspect-square bg-gray-50 rounded-xl mb-4 flex items-center justify-center group-hover:bg-blue-50 transition-colors relative overflow-hidden shadow-inner">
+                                            <div className="text-blue-500 font-black text-3xl opacity-10 uppercase tracking-tighter">
+                                                {prod.produto_nome.substring(0, 2)}
+                                            </div>
+
+                                            <div className={`absolute top-2 right-2 ${statusColor} text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1`}>
+                                                <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
+                                                {statusText}
+                                            </div>
+
+                                            {prod.quantidade === 0 && (
+                                                <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+                                                    <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Esgotado</span>
                                                 </div>
+                                            )}
+                                        </div>
 
-                                                {/* Badges de Status */}
-                                                {prod.quantidade <= 5 && prod.quantidade > 0 && (
-                                                    <div className="absolute top-2 right-2 bg-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                                                        CRÍTICO
-                                                    </div>
-                                                )}
-                                                {prod.quantidade === 0 && (
-                                                    <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
-                                                        <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Esgotado</span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                        <h3 className="font-bold text-gray-900 text-sm line-clamp-2 mb-2 min-h-[2.5rem] leading-tight">
+                                            {prod.produto_nome}
+                                        </h3>
 
-                                            <h3 className="font-bold text-gray-900 text-sm line-clamp-2 mb-2 min-h-[2.5rem] group-hover:text-blue-600 leading-tight">
-                                                {prod.produto_nome}
-                                            </h3>
-
-                                            <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-gray-500 font-bold mb-4">
-                                                <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-400">Lote: {prod.lote}</span>
-                                                <span className={`px-2 py-0.5 rounded ${prod.quantidade > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {prod.quantidade} UNID
-                                                </span>
-                                            </div>
-
-                                            <div className="mt-auto flex items-center justify-between pt-2 border-t border-gray-50">
-                                                <span className="text-base font-black text-gray-900 tracking-tight">
-                                                    {formatPrice(parseFloat(prod.preco_venda))}
-                                                </span>
-                                                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-lg group-hover:rotate-90 transition-all duration-300 group-hover:bg-blue-700 group-hover:shadow-blue-200">
-                                                    <Plus size={20} strokeWidth={3} />
+                                        <div className="mt-auto space-y-2">
+                                            {/* Preço Normal / Caixa */}
+                                            <button
+                                                onClick={() => adicionarAoCarrinho(prod, false)}
+                                                className="w-full flex items-center justify-between p-2 rounded-xl bg-blue-50 hover:bg-blue-600 group/btn transition-all"
+                                            >
+                                                <div className="flex flex-col items-start">
+                                                    <span className="text-[10px] font-bold text-blue-600 group-hover/btn:text-blue-100 uppercase">Integral</span>
+                                                    <span className="text-sm font-black text-blue-900 group-hover/btn:text-white">
+                                                        {formatPrice(parseFloat(prod.preco_venda))}
+                                                    </span>
                                                 </div>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </>
+                                                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-lg group-hover/btn:bg-white group-hover/btn:text-blue-600 transition-colors">
+                                                    <Plus size={16} strokeWidth={3} />
+                                                </div>
+                                            </button>
+
+                                            {/* Preço Avulso (Opcional) */}
+                                            {prod.permite_venda_avulsa && (
+                                                <button
+                                                    onClick={() => adicionarAoCarrinho(prod, true)}
+                                                    className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 group/btn transition-all"
+                                                >
+                                                    <div className="flex flex-col items-start">
+                                                        <span className="text-[10px] font-bold text-emerald-600 group-hover/btn:text-emerald-100 uppercase">Avulso</span>
+                                                        <span className="text-sm font-black text-emerald-900 group-hover/btn:text-white">
+                                                            {formatPrice(parseFloat(prod.preco_venda_avulso || '0'))}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-lg group-hover/btn:bg-white group-hover/btn:text-emerald-600 transition-colors">
+                                                        <Plus size={16} strokeWidth={3} />
+                                                    </div>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
             </div>
 
             {/* Área Direita: Carrinho e Checkout */}
             <div className="w-96 bg-white border-l shadow-xl flex flex-col h-full rounded-l-2xl">
-                <div className="p-6 bg-gray-50 border-b">
-                    <div className="flex items-center gap-2 text-gray-700 mb-4">
-                        <User size={20} />
-                        <input
-                            type="text"
-                            placeholder="Cliente (Opcional)"
-                            className="bg-transparent border-b border-gray-300 focus:border-blue-500 outline-none w-full"
-                            value={cliente}
-                            onChange={e => setCliente(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <h2 className="font-bold text-lg flex items-center gap-2">
-                            <ShoppingCart size={20} /> Carrinho
+                <div className="p-3 bg-gray-50 border-b space-y-2">
+                    <div className="flex justify-between items-center mb-1">
+                        <h2 className="font-bold text-sm flex items-center gap-2 text-gray-800 uppercase tracking-tighter">
+                            <ShoppingCart size={18} className="text-blue-600" /> Carrinho
                         </h2>
-                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold">
-                            {carrinho.reduce((acc, i) => acc + i.qtdVenda, 0)} itens
+                        <span className="bg-blue-600 text-white px-2 py-0.5 rounded text-[9px] font-black">
+                            {carrinho.reduce((acc, i) => acc + i.qtdVenda, 0)} ITENS
                         </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 border-t pt-2 border-gray-200">
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={cliente}
+                                onChange={async (e) => {
+                                    setCliente(e.target.value);
+                                    if (e.target.value.length > 2) {
+                                        try {
+                                            const res = await api.get(`/clientes/?search=${e.target.value}`);
+                                            setSugestoesClientes(res.data.results || res.data);
+                                        } catch (error) { }
+                                    } else { setSugestoesClientes([]); }
+                                }}
+                                placeholder="Cliente (Nome ou NUIT)..."
+                                className="w-full bg-white border border-gray-200 text-[11px] rounded-lg p-1.5 outline-none focus:border-blue-500 shadow-sm"
+                            />
+                            {sugestoesClientes.length > 0 && (
+                                <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-lg shadow-2xl mt-1 overflow-hidden z-20">
+                                    {sugestoesClientes.map((c: any) => (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => { setCliente(c.nome_completo || ''); setSugestoesClientes([]); }}
+                                            className="w-full text-left p-2 hover:bg-blue-50 border-b border-gray-50 last:border-0"
+                                        >
+                                            <span className="font-bold text-[10px]">{c.nome_completo}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2">
+                            <select
+                                value={metodoPagamento}
+                                onChange={e => setMetodoPagamento(e.target.value)}
+                                className="flex-1 bg-white border border-gray-200 text-[10px] rounded-lg p-1.5 outline-none focus:border-blue-500 shadow-sm font-bold uppercase"
+                            >
+                                <option value="DINHEIRO">DINHEIRO</option>
+                                <option value="POS">CARTÃO</option>
+                                <option value="MPESA">M-PESA</option>
+                                <option value="EMOLA">E-MOLA</option>
+                                <option value="CREDITO">CRÉDITO</option>
+                            </select>
+
+                            {metodoPagamento === 'DINHEIRO' && (
+                                <input
+                                    type="number"
+                                    value={valorRecebido}
+                                    onChange={e => setValorRecebido(e.target.value)}
+                                    placeholder="Pago..."
+                                    className="w-24 bg-white border border-gray-200 text-[10px] rounded-lg p-1.5 outline-none focus:border-blue-500 shadow-sm font-bold"
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -273,10 +353,9 @@ export default function VendasPOSPage() {
                                 </div>
                             </div>
                             <div className="text-right flex flex-col items-end gap-1">
-                                <div className="font-bold text-gray-800">
+                                <div className="font-bold text-gray-800 text-sm">
                                     {formatPrice(parseFloat(item.preco_venda) * item.qtdVenda)}
                                 </div>
-
                                 <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
                                     <button
                                         onClick={() => {
@@ -296,7 +375,7 @@ export default function VendasPOSPage() {
                                             if (item.qtdVenda < item.quantidade) {
                                                 setCarrinho(prev => prev.map(p => p.id === item.id ? { ...p, qtdVenda: p.qtdVenda + 1 } : p));
                                             } else {
-                                                toast.error('Estoque máximo atingido!');
+                                                toast.error('Estoque máximo!');
                                             }
                                         }}
                                         className="p-1 hover:bg-gray-100 text-blue-600 rounded-r-lg"
@@ -304,127 +383,52 @@ export default function VendasPOSPage() {
                                         <Plus size={14} />
                                     </button>
                                 </div>
-                                <button
-                                    onClick={() => removerDoCarrinho(item.id)}
-                                    className="text-red-500 hover:text-red-700 p-1 mt-1 text-xs flex items-center gap-1"
-                                >
-                                    <Trash2 size={12} /> Remover
-                                </button>
                             </div>
                         </div>
                     ))}
                     {carrinho.length === 0 && (
-                        <div className="text-center text-gray-400 py-10 flex flex-col items-center">
-                            <ShoppingCart size={48} className="mb-2 opacity-20" />
-                            <p>Caixa Livre</p>
+                        <div className="text-center text-gray-400 py-10">
+                            <ShoppingCart size={40} className="mx-auto mb-2 opacity-10" />
+                            <p className="text-xs uppercase font-bold tracking-widest">Caixa Livre</p>
                         </div>
                     )}
                 </div>
 
-                <div className="p-6 bg-gray-900 text-white mt-auto">
-                    {/* Campo Cliente com Busca */}
-                    <div className="mb-4 relative">
-                        <label className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
-                            <span>Cliente (Opcional)</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowCadastroCliente(true)}
-                                className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-xs normal-case font-normal"
-                            >
-                                <UserPlus size={14} />
-                                Cadastrar Novo
-                            </button>
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={cliente}
-                                onChange={async (e) => {
-                                    setCliente(e.target.value);
-                                    if (e.target.value.length > 2) {
-                                        try {
-                                            const res = await api.get(`/clientes/?search=${e.target.value}`);
-                                            setSugestoesClientes(res.data.results || res.data);
-                                        } catch (error) {
-                                            console.error(error);
-                                        }
-                                    } else {
-                                        setSugestoesClientes([]);
-                                    }
-                                }}
-                                placeholder="Nome, Telefone ou NUIT"
-                                className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg p-2 outline-none focus:border-blue-500"
-                            />
-                            {sugestoesClientes.length > 0 && (
-                                <div className="absolute bottom-full left-0 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-2xl mb-1 overflow-hidden z-20">
-                                    {sugestoesClientes.map((c: any) => (
-                                        <button
-                                            key={c.id}
-                                            onClick={() => {
-                                                setCliente(c.nome_completo || '');
-                                                setSugestoesClientes([]);
-                                            }}
-                                            className="w-full text-left p-3 hover:bg-gray-700 border-b border-gray-700 last:border-0 flex flex-col"
-                                        >
-                                            <span className="font-bold text-sm">{c.nome_completo}</span>
-                                            <span className="text-[10px] text-gray-500">{c.telefone} | {c.email || 'Sem email'}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                <div className="p-3 bg-gray-900 text-white mt-auto rounded-t-2xl shadow-inner">
+                    {metodoPagamento === 'DINHEIRO' && troco > 0 && (
+                        <div className="mb-2 flex justify-between items-center bg-yellow-400/10 p-2 rounded-lg border border-yellow-400/20 text-xs">
+                            <span className="font-black text-yellow-400/70 uppercase">Troco</span>
+                            <span className="font-black text-yellow-400">{formatPrice(troco)}</span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Busca global de clientes cadastrados</p>
-                    </div>
+                    )}
 
-                    {/* Método de Pagamento */}
-                    <div className="mb-4">
-                        <label className="text-gray-400 text-xs uppercase font-bold tracking-wider mb-1 block">Pagamento</label>
-                        <select
-                            value={metodoPagamento}
-                            onChange={e => setMetodoPagamento(e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg p-2 outline-none focus:border-blue-500"
-                        >
-                            <option value="DINHEIRO">Dinheiro (Cash)</option>
-                            <option value="POS">POS / Cartão</option>
-                            <option value="MPESA">M-Pesa</option>
-                            <option value="EMOLA">e-Mola</option>
-                        </select>
-                    </div>
-
-                    {/* Upload de Receita Médica */}
-                    <div className="mb-6">
+                    <div className="mb-3">
                         <ReceitaUploader
                             onImageSelect={setReceitaFile}
                             currentImage={receitaFile}
                         />
                     </div>
 
-                    <div className="flex justify-between items-end mb-6">
-                        <span className="text-gray-400">Total a Pagar</span>
-                        <span className="text-3xl font-bold">{formatPrice(totalVenda)}</span>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <span className="text-[9px] font-black text-gray-500 uppercase block">Total</span>
+                            <span className="text-xl font-black">{formatPrice(totalVenda)}</span>
+                        </div>
+                        <button
+                            onClick={finalizarVenda}
+                            disabled={carrinho.length === 0 || finalizando}
+                            className="px-5 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-20 text-white font-black rounded-xl text-xs transition-all shadow-lg active:scale-95"
+                        >
+                            {finalizando ? '...' : 'FINALIZAR'}
+                        </button>
                     </div>
-                    <button
-                        onClick={finalizarVenda}
-                        disabled={carrinho.length === 0 || finalizando}
-                        className="w-full py-4 bg-green-500 hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-lg flex items-center justify-center gap-2 transition-colors"
-                    >
-                        {finalizando ? (
-                            'Processando...'
-                        ) : (
-                            <>
-                                <CreditCard size={24} /> Finalizar Venda
-                            </>
-                        )}
-                    </button>
                 </div>
             </div>
 
-            {/* Modal de Recibo Fiscal Profissional */}
+            {/* Modais */}
             {recibo && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static print:block">
                     <div className="flex flex-col gap-6 items-center animate-in zoom-in duration-300">
-
-                        {/* Wrapper do Recibo para Impressão */}
                         <div className="print:w-full print:h-full print:absolute print:top-0 print:left-0 text-left">
                             <Receipt
                                 pharmacyName={recibo.farmacia?.nome || 'Farmácia GestorFarma'}
@@ -436,22 +440,18 @@ export default function VendasPOSPage() {
                                 subtotal={recibo.subtotal || recibo.total / 1.16}
                                 tax={recibo.tax || recibo.total - (recibo.total / 1.16)}
                                 total={recibo.total}
-                                qrCodeData={recibo.qrcode || `PEDIDO-${recibo.numero}`}
+                                qrCodeData={`https://gestorfarma.vercel.app/verify/${recibo.id}`}
+                                sellerName={recibo.vendedor_nome}
+                                paymentMethod={recibo.tipo_pagamento}
+                                paidAmount={recibo.valor_pago}
+                                change={recibo.troco}
                             />
                         </div>
-
-                        {/* Botões de Ação (Escondidos na Impressão) */}
                         <div className="flex gap-4 print:hidden">
-                            <button
-                                onClick={() => window.print()}
-                                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg flex items-center gap-2"
-                            >
-                                <CreditCard size={20} /> IMPRIMIR RECIBO
+                            <button onClick={() => window.print()} className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg flex items-center gap-2">
+                                <CreditCard size={20} /> IMPRIMIR
                             </button>
-                            <button
-                                onClick={() => setRecibo(null)}
-                                className="px-6 py-3 bg-white text-gray-800 rounded-lg font-bold hover:bg-gray-100 shadow-lg"
-                            >
+                            <button onClick={() => setRecibo(null)} className="px-6 py-3 bg-white text-gray-800 rounded-lg font-bold hover:bg-gray-100 shadow-lg">
                                 FECHAR
                             </button>
                         </div>
@@ -459,7 +459,6 @@ export default function VendasPOSPage() {
                 </div>
             )}
 
-            {/* Modal Cadastro Cliente */}
             {showCadastroCliente && (
                 <CadastroClienteModal
                     isOpen={true}
@@ -467,7 +466,7 @@ export default function VendasPOSPage() {
                     onSuccess={(clienteNome) => {
                         setCliente(clienteNome);
                         setShowCadastroCliente(false);
-                        toast.success('Cliente cadastrado com sucesso!');
+                        toast.success('Cliente cadastrado!');
                     }}
                 />
             )}

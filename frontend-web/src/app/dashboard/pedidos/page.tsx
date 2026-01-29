@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import Link from 'next/link';
 import { formatPrice, formatDate } from '@/lib/utils';
-import { Eye, Search } from 'lucide-react';
+import { Eye, Search, Trash2 } from 'lucide-react';
 
 interface Pedido {
     id: number;
@@ -42,6 +42,21 @@ export default function PedidosPage() {
             console.error('Erro ao buscar pedidos', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const [anulando, setAnulando] = useState<number | null>(null);
+
+    const anularVenda = async (id: number, numero: string) => {
+        if (!confirm(`Anular a venda ${numero}? Itens voltarão ao stock.`)) return;
+        setAnulando(id);
+        try {
+            await api.post(`/pedidos/${id}/anular/`);
+            fetchPedidos();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setAnulando(null);
         }
     };
 
@@ -159,6 +174,16 @@ export default function PedidosPage() {
                                                 >
                                                     <Eye size={14} /> DETALHES
                                                 </Link>
+                                                {pedido.status !== 'CANCELADO' && (
+                                                    <button
+                                                        onClick={() => anularVenda(pedido.id, pedido.numero_pedido)}
+                                                        disabled={anulando === pedido.id}
+                                                        className="p-1.5 text-red-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                                                        title="Anular Venda"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

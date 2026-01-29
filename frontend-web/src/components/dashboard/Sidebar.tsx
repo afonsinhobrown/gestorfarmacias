@@ -12,7 +12,9 @@ import {
     Users,
     Settings,
     LogOut,
-    DollarSign
+    DollarSign,
+    BarChart3,
+    Shield
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { cn } from '@/lib/utils';
@@ -32,62 +34,89 @@ export function Sidebar() {
 
     const menuItems = [
         {
-            title: 'Visão Geral',
+            title: 'Visão Gerencial',
             href: isAdmin ? '/dashboard/admin' :
                 isCliente ? '/dashboard/cliente' :
                     isEntregador ? '/dashboard/entregador' : '/dashboard/farmacia',
             icon: LayoutDashboard,
+            show: true
         },
-        // Admin Menu
+        // Super Admin Menu
         {
-            title: 'Farmácias',
-            href: '/dashboard/admin/farmacias',
-            icon: Store,
+            title: 'Gestão Master',
+            href: '/dashboard/admin/gestao',
+            icon: Shield,
             show: isAdmin,
         },
         {
-            title: 'Motoboys',
+            title: 'Equipe de Entrega',
             href: '/dashboard/admin/motoboys',
             icon: Truck,
             show: isAdmin,
         },
 
-        // Farmácia Menu
-        {
-            title: 'Faturação (Pedidos)',
-            href: '/dashboard/pedidos',
-            icon: ShoppingBag,
-            show: isFarmacia,
-        },
-        {
-            title: 'Gestão de Estoque',
-            href: '/dashboard/estoque',
-            icon: Package,
-            show: isFarmacia,
-        },
-        {
-            title: 'Gestão Financeira & RH',
-            href: '/dashboard/financeiro',
-            icon: DollarSign,
-            show: isFarmacia,
-        },
+        // Farmácia Menu (Distribuído por cargo)
         {
             title: 'Ponto de Venda (POS)',
             href: '/dashboard/vendas',
             icon: CreditCard,
-            show: isFarmacia,
+            show: isFarmacia && ['GERENTE', 'CAIXA', 'ATENDENTE', 'FARMACEUTICO', 'FARMACIA'].includes(user?.cargo || ''),
         },
         {
-            title: 'Relatórios & BI',
+            title: 'Gestão de Faturamento',
+            href: '/dashboard/pedidos',
+            icon: ShoppingBag,
+            show: isFarmacia && ['GERENTE', 'CAIXA', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+        {
+            title: 'Estoque & Produtos',
+            href: '/dashboard/produtos',
+            icon: Package,
+            show: isFarmacia && ['GERENTE', 'FARMACEUTICO', 'ATENDENTE', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+        {
+            title: 'Kardex (Movimentos)',
+            href: '/dashboard/kardex',
+            icon: BarChart3,
+            show: isFarmacia && ['GERENTE', 'FARMACEUTICO', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+        {
+            title: 'Financeiro & Fluxo',
+            href: '/dashboard/financeiro',
+            icon: DollarSign,
+            show: isFarmacia && ['GERENTE', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+        {
+            title: 'Recursos Humanos',
+            href: '/dashboard/usuarios',
+            icon: Users,
+            show: isFarmacia && ['GERENTE', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+        {
+            title: 'Análise de Vendas',
             href: '/dashboard/relatorios',
-            icon: LayoutDashboard,
-            show: isFarmacia,
+            icon: BarChart3,
+            show: isFarmacia && ['GERENTE', 'CAIXA', 'FARMACIA'].includes(user?.cargo || ''),
         },
         {
-            title: 'Entregas',
+            title: 'Minhas Comissões',
+            href: '/dashboard/relatorios/comissoes',
+            icon: Users,
+            show: isFarmacia && ['GERENTE', 'CAIXA', 'ATENDENTE', 'FARMACEUTICO', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+        {
+            title: 'Gestão de Entregas',
             href: '/dashboard/entregas',
             icon: Truck,
-            show: isFarmacia,
+            show: isFarmacia && ['GERENTE', 'ATENDENTE', 'FARMACIA'].includes(user?.cargo || ''),
+        },
+
+        // Fornecedores
+        {
+            title: 'Fornecedores',
+            href: '/dashboard/fornecedores',
+            icon: Users,
+            show: isFarmacia && ['GERENTE', 'FARMACEUTICO', 'FARMACIA'].includes(user?.cargo || ''),
         },
 
         // Cliente Menu
@@ -107,33 +136,16 @@ export function Sidebar() {
         },
 
         {
-            title: 'Fornecedores',
-            href: '/dashboard/fornecedores',
-            icon: Users,
-            show: isFarmacia,
-        },
-        {
-            title: 'Usuários',
-            href: '/dashboard/usuarios',
-            icon: Users,
-            show: isAdmin,
-        },
-        {
             title: 'Minha Farmácia',
             href: '/dashboard/configuracoes',
             icon: Settings,
-            show: isFarmacia,
+            show: isFarmacia && ['GERENTE', 'FARMACIA'].includes(user?.cargo || ''),
         },
         {
-            title: 'Configurações',
-            href: '/dashboard/configuracoes',
-            icon: Settings,
-            show: !isFarmacia,
-        },
-        {
-            title: 'Suporte',
+            title: 'Suporte & Ajuda',
             href: '/dashboard/suporte',
             icon: Users,
+            show: true
         },
     ];
 

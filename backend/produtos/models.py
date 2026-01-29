@@ -40,6 +40,32 @@ class Produto(models.Model):
     codigo_barras = models.CharField(_('código de barras'), max_length=50, unique=True, blank=True, null=True)
     codigo_interno = models.CharField(_('código interno'), max_length=50, blank=True)
     
+    # Unidades e Apresentação
+    class UnidadeMedida(models.TextChoices):
+        UNIDADE = 'UNIDADE', _('Unidade')
+        CAIXA = 'CAIXA', _('Caixa')
+        FRASCO = 'FRASCO', _('Frasco')
+        CARTELA = 'CARTELA', _('Cartela/Blister')
+        MILILITROS = 'ML', _('Mililitros')
+        GRAMAS = 'G', _('Gramas')
+
+    unidade_medida = models.CharField(
+        _('unidade de medida'),
+        max_length=20,
+        choices=UnidadeMedida.choices,
+        default=UnidadeMedida.UNIDADE
+    )
+    unidades_por_caixa = models.PositiveIntegerField(
+        _('unidades por caixa/embalagem'), 
+        default=1,
+        help_text=_('Quantidade de unidades individuais dentro de uma caixa/embalagem')
+    )
+    permite_venda_avulsa = models.BooleanField(
+        _('permite venda avulsa'), 
+        default=False,
+        help_text=_('Ex: vender 1 comprimido de uma cartela')
+    )
+    
     # Categoria e tipo
     categoria = models.ForeignKey(
         CategoriaProduto,
@@ -71,6 +97,10 @@ class Produto(models.Model):
     controlado = models.BooleanField(_('controlado'), default=False)
     registro_ministerio = models.CharField(_('registro ministério'), max_length=100, blank=True)
     
+    # Tributação
+    is_isento_iva = models.BooleanField(_('isento de IVA'), default=False)
+    taxa_iva = models.DecimalField(_('taxa de IVA (%)'), max_digits=5, decimal_places=2, default=16.00)
+    
     # Apresentação
     forma_farmaceutica = models.CharField(
         _('forma farmacêutica'),
@@ -84,8 +114,15 @@ class Produto(models.Model):
     # Imagens
     imagem_principal = models.ImageField(_('imagem principal'), upload_to='produtos/', blank=True, null=True)
     
-    # Status
+    # Status e Comissões
     is_ativo = models.BooleanField(_('ativo'), default=True)
+    percentual_comissao = models.DecimalField(
+        _('percentual de comissão (%)'), 
+        max_digits=5, 
+        decimal_places=2, 
+        default=0.00,
+        help_text=_('Comissão paga ao vendedor por cada unidade vendida')
+    )
     
     # Metadata
     data_criacao = models.DateTimeField(_('data de criação'), auto_now_add=True)
@@ -142,6 +179,27 @@ class EstoqueProduto(models.Model):
         blank=True,
         help_text=_('Ex: Prateleira A, Setor 3')
     )
+
+    class LocalEstoque(models.TextChoices):
+        LOJA = 'LOJA', _('Loja')
+        ARMAZEM = 'ARMAZEM', _('Armazém')
+        OUTRO = 'OUTRO', _('Outro')
+
+    local = models.CharField(
+        _('local de armazenamento'),
+        max_length=10,
+        choices=LocalEstoque.choices,
+        default=LocalEstoque.LOJA
+    )
+    
+    # Preço para venda avulsa (se permitido no produto)
+    preco_venda_avulso = models.DecimalField(
+        _('preço de venda avulso'), 
+        max_digits=10, 
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
     
     # Status
     is_disponivel = models.BooleanField(_('disponível'), default=True)
@@ -154,7 +212,7 @@ class EstoqueProduto(models.Model):
         verbose_name = _('estoque de produto')
         verbose_name_plural = _('estoques de produtos')
         ordering = ['-data_criacao']
-        unique_together = ['farmacia', 'produto', 'lote']
+        unique_together = ['farmacia', 'produto', 'lote', 'local']
     
     def __str__(self):
         return f"{self.produto.nome} - {self.farmacia.nome} (Qtd: {self.quantidade})"
@@ -251,6 +309,7 @@ class MovimentacaoEstoque(models.Model):
         AJUSTE = 'AJUSTE', _('Ajuste')
         DEVOLUCAO = 'DEVOLUCAO', _('Devolução')
         PERDA = 'PERDA', _('Perda')
+        TRANSFERENCIA = 'TRANSFERENCIA', _('Transferência')
     
     estoque = models.ForeignKey(
         EstoqueProduto,

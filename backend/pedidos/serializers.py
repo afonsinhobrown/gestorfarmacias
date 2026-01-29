@@ -3,6 +3,7 @@ from .models import Pedido, ItemPedido, HistoricoPedido
 from produtos.serializers import ProdutoSerializer
 from produtos.models import EstoqueProduto
 from django.db import transaction
+from decimal import Decimal
 
 class ItemPedidoSerializer(serializers.ModelSerializer):
     """Serializer para os itens dentro do pedido."""
@@ -105,6 +106,8 @@ class VendaBalcaoSerializer(serializers.Serializer):
     cliente = serializers.CharField(required=False, allow_blank=True)
     tipo_pagamento = serializers.ChoiceField(choices=Pedido.FormaPagamento.choices)
     receita_medica = serializers.ImageField(required=False, allow_null=True)
+    valor_pago = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
+    troco = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
     
     def create(self, validated_data):
         user = self.context['request'].user
@@ -124,27 +127,36 @@ class VendaBalcaoSerializer(serializers.Serializer):
         with transaction.atomic():
             # 1. Criar o Pedido
             pedido = Pedido.objects.create(
-                cliente=user, # Na venda balcão, o 'cliente' é o próprio user da farmácia por enquanto (ou um user 'Guest')
+                cliente=user, # Na venda balcão, o 'cliente' é o próprio user da farmácia por enquanto
+                vendedor=user, # Rastreio de quem fez a venda
                 farmacia=user.farmacia,
-                status=Pedido.StatusPedido.ENTREGUE, # Já entregue
+                status=Pedido.StatusPedido.ENTREGUE,
                 forma_pagamento=pagamento,
-                pago=True, # Já pago
+                pago=True,
+                valor_pago=validated_data.get('valor_pago', 0),
+                troco=validated_data.get('troco', 0),
                 endereco_entrega="BALCÃO",
                 bairro="-", cidade="-",
                 telefone_contato="-",
                 observacoes=f"Venda Balcão - Cliente: {cliente_nome}",
-                receita_medica=validated_data.get('receita_medica')  # Upload de receita
+                receita_medica=validated_data.get('receita_medica')
             )
             
-            # 2. Criar Itens e Baixar Estoque
+                # 2. Criar Itens e Baixar Estoque
             for item in itens_data:
                 # Converter tipos para garantir
                 item_qtd = int(item['quantidade'])
-                item_preco = float(item['preco_unitario'])
+                item_preco = Decimal(str(item['preco_unitario']))
                 item_estoque_id = int(item['estoque_id'])
+                item_is_avulso = item.get('is_avulso', False)
 
-                estoque = EstoqueProduto.objects.get(id=item_estoque_id)
+                estoque = EstoqueProduto.objects.select_for_update().get(id=item_estoque_id)
                 
+                # Calcular Comissão
+                subtotal_item = item_qtd * item_preco
+                percentual = estoque.produto.percentual_comissao
+                valor_comis = (subtotal_item * percentual) / 100
+
                 # Criar ItemPedido
                 ItemPedido.objects.create(
                     pedido=pedido,
@@ -152,15 +164,56 @@ class VendaBalcaoSerializer(serializers.Serializer):
                     estoque=estoque,
                     quantidade=item_qtd,
                     preco_unitario=item_preco,
-                    subtotal=item_qtd * item_preco
+                    subtotal=subtotal_item,
+                    is_avulso=item_is_avulso,
+                    valor_comissao=valor_comis
                 )
                 
-                # Baixar Estoque
+                # Baixar Estoque e Registrar Movimentação
+                quantidade_anterior = estoque.quantidade
                 estoque.quantidade -= item_qtd
                 estoque.save()
+
+                from produtos.models import MovimentacaoEstoque
+                MovimentacaoEstoque.objects.create(
+                    estoque=estoque,
+                    tipo='SAIDA',
+                    quantidade=item_qtd,
+                    quantidade_anterior=quantidade_anterior,
+                    quantidade_nova=estoque.quantidade,
+                    custo_unitario=estoque.preco_custo,
+                    preco_venda_unitario=item_preco,
+                    usuario=user,
+                    referencia_externa=f"Venda {pedido.numero_pedido}",
+                    motivo="Venda de Balcão (POS)"
+                )
             
             pedido.calcular_total()
             
             # Aqui no futuro: Criar Movimentação Financeira em 'financas'
             
             return pedido
+
+    def to_representation(self, instance):
+        return {
+            'id': instance.id,
+            'numero': instance.numero_pedido,
+            'data': instance.data_criacao.isoformat(),
+            'total': float(instance.total),
+            'tipo_pagamento': instance.forma_pagamento,
+            'valor_pago': float(instance.valor_pago),
+            'troco': float(instance.troco),
+            'vendedor_nome': instance.vendedor.get_full_name() if instance.vendedor else "Sistema",
+            'farmacia': {
+                'nome': instance.farmacia.nome,
+                'endereco': instance.farmacia.endereco,
+                'nuit': instance.farmacia.nuit
+            },
+            'itens': [
+                {
+                    'produto': i.produto.nome,
+                    'qty': i.quantidade,
+                    'total': float(i.subtotal)
+                } for i in instance.itens.all()
+            ]
+        }

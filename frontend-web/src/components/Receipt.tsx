@@ -19,6 +19,10 @@ interface ReceiptProps {
     tax?: number | string;
     total: number | string;
     qrCodeData: string;
+    sellerName?: string;
+    paymentMethod?: string;
+    paidAmount?: number | string;
+    change?: number | string;
 }
 
 const safeNumber = (val: number | string | undefined): number => {
@@ -39,7 +43,11 @@ export const Receipt: React.FC<ReceiptProps> = ({
     orderId,
     items = [],
     total,
-    qrCodeData
+    qrCodeData,
+    sellerName,
+    paymentMethod,
+    paidAmount,
+    change
 }) => {
     // Cálculos de segurança caso venham nulos do backend
     const totalVal = safeNumber(total);
@@ -63,11 +71,14 @@ export const Receipt: React.FC<ReceiptProps> = ({
 
             <div className="border-b border-dashed border-gray-300 my-3"></div>
 
-            <div className="flex justify-between text-[10px] font-bold text-gray-600 mb-2">
+            <div className="flex justify-between text-[10px] font-bold text-gray-600 mb-1">
                 <span>DATA: {displayDate}</span>
                 <span>HORA: {new Date().toLocaleTimeString('pt-MZ', { hour: '2-digit', minute: '2-digit' })}</span>
             </div>
-            <p className="text-[10px] font-bold text-gray-600 mb-4">PEDIDO: #{orderId}</p>
+            <div className="flex justify-between text-[10px] font-bold text-gray-600 mb-2">
+                <span>DOC: #{orderId}</span>
+                <span className="uppercase">OP: {sellerName || 'SISTEMA'}</span>
+            </div>
 
             <div className="mb-4">
                 <div className="flex justify-between font-black border-b border-gray-800 pb-1 mb-2">
@@ -102,6 +113,25 @@ export const Receipt: React.FC<ReceiptProps> = ({
                 <div className="flex justify-between font-black text-xl mt-3 pt-3 border-t-2 border-gray-900">
                     <span>TOTAL</span>
                     <span>{formatMoney(totalVal)}</span>
+                </div>
+
+                <div className="mt-4 pt-2 border-t border-dotted border-gray-400 space-y-1 text-[9px] font-bold text-gray-500 uppercase">
+                    <div className="flex justify-between">
+                        <span>PAGAMENTO:</span>
+                        <span>{paymentMethod || 'DINHEIRO'}</span>
+                    </div>
+                    {safeNumber(paidAmount) > 0 && (
+                        <>
+                            <div className="flex justify-between">
+                                <span>VALOR ENTREGUE:</span>
+                                <span>{formatMoney(paidAmount)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-900 border-t border-gray-200 mt-1 pt-1 font-black">
+                                <span>TROCO:</span>
+                                <span>{formatMoney(change)}</span>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

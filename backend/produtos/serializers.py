@@ -21,6 +21,8 @@ class ProdutoSerializer(serializers.ModelSerializer):
             'descricao', 'composicao', 'fabricante',
             'requer_receita', 'forma_farmaceutica', 
             'concentracao', 'quantidade_embalagem',
+            'unidade_medida', 'unidades_por_caixa',
+            'permite_venda_avulsa', 'is_isento_iva', 'taxa_iva',
             'imagem_principal', 'is_ativo'
         )
 
@@ -48,10 +50,20 @@ class EstoqueGestaoSerializer(serializers.ModelSerializer):
     """Serializer para gestão de estoque pela farmácia."""
     produto_nome = serializers.CharField(source='produto.nome', read_only=True)
     produto_codigo = serializers.CharField(source='produto.codigo_barras', read_only=True)
+    unidades_por_caixa = serializers.IntegerField(source='produto.unidades_por_caixa', read_only=True)
+    permite_venda_avulsa = serializers.BooleanField(source='produto.permite_venda_avulsa', read_only=True)
+    percentual_comissao = serializers.DecimalField(source='produto.percentual_comissao', max_digits=5, decimal_places=2, read_only=True)
     
     class Meta:
         model = EstoqueProduto
-        fields = '__all__'
+        fields = (
+            'id', 'farmacia', 'produto', 'produto_nome', 'produto_codigo',
+            'unidades_por_caixa', 'permite_venda_avulsa', 'percentual_comissao',
+            'quantidade', 'quantidade_minima', 'lote', 'local',
+            'data_fabricacao', 'data_validade', 'preco_custo', 
+            'preco_venda', 'preco_promocional', 'preco_venda_avulso',
+            'em_promocao', 'localizacao_estoque', 'is_disponivel'
+        )
         read_only_fields = ('data_criacao', 'data_atualizacao', 'farmacia')
 
 

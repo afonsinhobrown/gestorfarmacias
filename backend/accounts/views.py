@@ -65,45 +65,67 @@ class FarmaciaRegistroView(generics.CreateAPIView):
         
         try:
             with transaction.atomic():
-                # Preparar dados do usuário
-                nome_completo = request.data.get('nome', '')
-                partes_nome = nome_completo.split(' ', 1)
-                first_name = partes_nome[0]
-                last_name = partes_nome[1] if len(partes_nome) > 1 else ''
-                
-                user_data = {
-                    'email': request.data.get('email'),
-                    'password': request.data.get('password'),
-                    'first_name': first_name,
-                    'last_name': last_name,
-                    'telefone': request.data.get('telefone'),
-                    'tipo_usuario': 'FARMACIA'
-                }
+                # Extrair dados do usuário e da farmácia
+                user_data = request.data.get('user', {})
+                farmacia_data = request.data.get('farmacia', {})
                 
                 # Validar se email já existe
-                if User.objects.filter(email=user_data['email']).exists():
+                email = user_data.get('email')
+                if not email:
+                    return Response({'error': 'Email é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                if User.objects.filter(email=email).exists():
                     return Response({'error': 'Email já cadastrado'}, status=status.HTTP_400_BAD_REQUEST)
                 
-                user = User.objects.create_user(**user_data)
+                # Validar NUIT único
+                nuit = farmacia_data.get('nuit')
+                if not nuit:
+                    return Response({'error': 'NUIT é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                if Farmacia.objects.filter(nuit=nuit).exists():
+                    return Response({'error': 'NUIT já cadastrado'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Criar usuário (dono da farmácia)
+                user = User.objects.create_user(
+                    email=email,
+                    password=user_data.get('password'),
+                    first_name=user_data.get('first_name', ''),
+                    last_name=user_data.get('last_name', ''),
+                    telefone=user_data.get('telefone', ''),
+                    tipo_usuario='FARMACIA'
+                )
                 
                 # Criar farmácia
-                Farmacia.objects.create(
+                farmacia = Farmacia.objects.create(
                     usuario=user,
-                    nome=request.data.get('nome') or first_name, # Nome da farmácia pode ser o nome do user se não vier
-                    nuit=request.data.get('nuit', ''),
-                    endereco=request.data.get('endereco', ''),
-                    bairro=request.data.get('bairro', ''),
-                    cidade=request.data.get('cidade', 'Maputo'),
-                    is_ativa=False # Aguarda ativação admin
+                    nome=farmacia_data.get('nome'),
+                    nome_fantasia=farmacia_data.get('nome_fantasia', ''),
+                    nuit=nuit,
+                    alvara=farmacia_data.get('alvara', ''),
+                    telefone_principal=farmacia_data.get('telefone_principal'),
+                    telefone_alternativo=farmacia_data.get('telefone_alternativo', ''),
+                    email=farmacia_data.get('email', email),
+                    endereco=farmacia_data.get('endereco'),
+                    bairro=farmacia_data.get('bairro', ''),
+                    cidade=farmacia_data.get('cidade', 'Maputo'),
+                    provincia=farmacia_data.get('provincia', 'Maputo'),
+                    codigo_postal=farmacia_data.get('codigo_postal', ''),
+                    latitude=farmacia_data.get('latitude', '-25.9655'),
+                    longitude=farmacia_data.get('longitude', '32.5832'),
+                    is_ativa=True,  # Ativa imediatamente (pode mudar para False se quiser aprovação)
+                    is_verificada=False
                 )
                 
                 return Response({
-                    'detail': 'Farmácia cadastrada com sucesso! Aguarde a aprovação do administrador.',
-                    'user': UserSerializer(user).data
+                    'detail': 'Farmácia cadastrada com sucesso!',
+                    'user': UserSerializer(user).data,
+                    'farmacia_id': farmacia.id
                 }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            import traceback
+            traceback.print_exc()
+            return Response({'error': f'Erro ao cadastrar farmácia: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class MotoboyRegistroView(generics.CreateAPIView):
