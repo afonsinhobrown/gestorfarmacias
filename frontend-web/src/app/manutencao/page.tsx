@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Tool, Phone, MessageSquare, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Settings, Wrench, Phone, MessageSquare, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function MaintenancePage() {
     const [checking, setChecking] = useState(false);
@@ -36,7 +36,7 @@ export default function MaintenancePage() {
                             <Settings size={80} className="text-blue-600 opacity-20" />
                         </motion.div>
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <Tool size={48} className="text-blue-600" />
+                            <Wrench size={48} className="text-blue-600" />
                         </div>
                     </div>
                 </motion.div>

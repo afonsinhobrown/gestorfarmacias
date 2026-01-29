@@ -24,7 +24,7 @@ export function Header() {
                 <div className="flex items-center gap-3 pl-4 border-l">
                     <div className="text-right hidden sm:block">
                         <p className="text-sm font-bold text-gray-900">
-                            {user?.nome || user?.email}
+                            {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : user?.email}
                         </p>
                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
                             {user?.tipo_usuario}
