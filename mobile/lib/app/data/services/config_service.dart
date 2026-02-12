@@ -29,8 +29,8 @@ class ConfigService extends GetxService {
       return 'http://localhost:8000/api/v1/';
     }
     
-    // Produção - URL do PythonAnywhere
-    return 'https://afonsinhobrown.pythonanywhere.com/api/v1/';
+    // Produção - URL do Render
+    return 'https://gestorfarmacias-backend.onrender.com/api/v1/';
   }
 
   void updateBaseUrl(String newUrl) {
