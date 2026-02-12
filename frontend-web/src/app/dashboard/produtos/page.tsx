@@ -57,6 +57,7 @@ interface MasterProdutoForm {
     percentual_comissao: string;
     is_isento_iva: boolean;
     taxa_iva: string;
+    pais_origem?: string;
 }
 
 export default function ProdutosPage() {
