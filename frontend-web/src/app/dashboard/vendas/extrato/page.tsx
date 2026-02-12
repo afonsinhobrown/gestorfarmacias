@@ -24,6 +24,14 @@ interface VendaExtrato {
 }
 
 export default function ExtratoVendasPage() {
+    // Estados Faltantes Adicionados
+    const [dataInicio, setDataInicio] = useState(new Date().toISOString().split('T')[0]);
+    const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+    const [vendas, setVendas] = useState<VendaExtrato[]>([]);
+    const [resumo, setResumo] = useState<Resumo | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    // Estados Existentes
     const [vendedorId, setVendedorId] = useState('');
     const [metodoPagamento, setMetodoPagamento] = useState('');
     const [vendedores, setVendedores] = useState<any[]>([]);
@@ -155,37 +163,34 @@ export default function ExtratoVendasPage() {
             >
                 <Filter size={16} /> Aplicar Filtros
             </button>
-        </div>
 
-            {
-        resumo && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Comercializado</p>
-                    <p className="text-2xl font-black text-gray-900">{formatPrice(resumo.total_faturado)}</p>
-                    <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1">
-                        BRUTO NO PERÍODO
+            {resumo && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Comercializado</p>
+                        <p className="text-2xl font-black text-gray-900">{formatPrice(resumo.total_faturado)}</p>
+                        <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1">
+                            BRUTO NO PERÍODO
+                        </div>
+                    </div>
+                    <div className="bg-gray-900 p-6 rounded-2xl shadow-xl border border-gray-800">
+                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Lucro Real Estimado</p>
+                        <p className="text-2xl font-black text-white">{formatPrice(resumo.total_lucro)}</p>
+                        <div className="mt-2 text-xs font-bold text-blue-400 flex items-center gap-1 animate-pulse">
+                            LUCRO SOBRE CUSTO
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Margem Média</p>
+                        <p className="text-2xl font-black text-gray-900">{resumo.margem_media}%</p>
+                        <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden">
+                            <div className="h-full bg-blue-500" style={{ width: `${resumo.margem_media}%` }}></div>
+                        </div>
                     </div>
                 </div>
-                <div className="bg-gray-900 p-6 rounded-2xl shadow-xl border border-gray-800">
-                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Lucro Real Estimado</p>
-                    <p className="text-2xl font-black text-white">{formatPrice(resumo.total_lucro)}</p>
-                    <div className="mt-2 text-xs font-bold text-blue-400 flex items-center gap-1 animate-pulse">
-                        LUCRO SOBRE CUSTO
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Margem Média</p>
-                    <p className="text-2xl font-black text-gray-900">{resumo.margem_media}%</p>
-                    <div className="h-2 bg-gray-100 rounded-full mt-3 overflow-hidden">
-                        <div className="h-full bg-blue-500" style={{ width: `${resumo.margem_media}%` }}></div>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+            )}
 
-    {/* Tabela de Vendas */ }
+            {/* Tabela de Vendas */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
