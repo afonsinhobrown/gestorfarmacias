@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     PackagePlus, Search, Plus, Trash2, Save, FileText,
-    Calendar, DollarSign, Truck, AlertTriangle, QrCode
+    Calendar, DollarSign, Truck, AlertTriangle, QrCode, X
 } from 'lucide-react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
