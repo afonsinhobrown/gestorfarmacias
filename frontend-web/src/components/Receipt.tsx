@@ -6,6 +6,8 @@ interface ReceiptItem {
     name?: string;    // Fallback
     qty: number | string;
     total: number | string;
+    is_isento?: boolean;
+    taxa_iva?: number;
 }
 
 interface ReceiptProps {
@@ -49,10 +51,26 @@ export const Receipt: React.FC<ReceiptProps> = ({
     paidAmount,
     change
 }) => {
-    // Cálculos de segurança caso venham nulos do backend
+    // Cálculos de IVA Item a Item
+    let totalExempt = 0;
+    let totalTaxed = 0;
+    let totalIVA = 0;
+
+    items.forEach(item => {
+        const itemTotal = safeNumber(item.total);
+        if (item.is_isento) {
+            totalExempt += itemTotal;
+        } else {
+            const rate = (item.taxa_iva || 16) / 100;
+            const base = itemTotal / (1 + rate);
+            const iva = itemTotal - base;
+            totalTaxed += base;
+            totalIVA += iva;
+        }
+    });
+
     const totalVal = safeNumber(total);
-    const subtotalVal = totalVal / 1.16;
-    const taxVal = totalVal - subtotalVal;
+    const subtotalVal = totalExempt + totalTaxed;
 
     // Formatar data
     let displayDate = new Date().toLocaleDateString('pt-MZ');
@@ -88,9 +106,12 @@ export const Receipt: React.FC<ReceiptProps> = ({
                 </div>
                 {items.map((item, idx) => (
                     <div key={idx} className="flex justify-between mb-1">
-                        <span className="w-1/2 truncate pr-1 lowercase first-letter:uppercase">
-                            {item.produto || item.name || 'Produto'}
-                        </span>
+                        <div className="w-1/2 flex flex-col">
+                            <span className="truncate pr-1 lowercase first-letter:uppercase">
+                                {item.produto || item.name || 'Produto'}
+                            </span>
+                            {item.is_isento && <span className="text-[7px] font-black text-gray-400">ISENTO</span>}
+                        </div>
                         <span className="w-1/6 text-center">{item.qty}</span>
                         <span className="w-1/3 text-right">
                             {new Intl.NumberFormat('pt-MZ', { minimumFractionDigits: 2 }).format(safeNumber(item.total))}
@@ -103,12 +124,16 @@ export const Receipt: React.FC<ReceiptProps> = ({
 
             <div className="space-y-1 text-[11px]">
                 <div className="flex justify-between text-gray-600">
-                    <span>SUBTOTAL</span>
-                    <span>{formatMoney(subtotalVal)}</span>
+                    <span>MERCADORIA ISENTA</span>
+                    <span>{formatMoney(totalExempt)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
-                    <span>IVA (16%)</span>
-                    <span>{formatMoney(taxVal)}</span>
+                    <span>SUBTOTAL TRIBUTÁVEL</span>
+                    <span>{formatMoney(totalTaxed)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                    <span>IVA TOTAL</span>
+                    <span>{formatMoney(totalIVA)}</span>
                 </div>
                 <div className="flex justify-between font-black text-xl mt-3 pt-3 border-t-2 border-gray-900">
                     <span>TOTAL</span>

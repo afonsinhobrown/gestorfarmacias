@@ -229,6 +229,24 @@ class EstoqueProduto(models.Model):
             return self.preco_promocional
         return self.preco_venda
 
+    @property
+    def quantidade_formatada(self):
+        """Retorna o estoque formatado como 'X Caixas e Y Carteiras'."""
+        upc = self.produto.unidades_por_caixa or 1
+        if upc <= 1:
+            return f"{self.quantidade} {self.produto.get_unidade_medida_display()}"
+        
+        caixas = self.quantidade // upc
+        restante = self.quantidade % upc
+        
+        partes = []
+        if caixas > 0:
+            partes.append(f"{caixas} cx")
+        if restante > 0 or caixas == 0:
+            partes.append(f"{restante} un")
+            
+        return " + ".join(partes)
+
     def save(self, *args, **kwargs):
         from farmacias.models import Notificacao
         from django.utils import timezone
@@ -409,7 +427,13 @@ class ItemEntrada(models.Model):
         verbose_name=_('produto')
     )
     
+    UNIDADE_CHOICES = (
+        ('CAIXA', _('Caixa/Embalagem')),
+        ('UNIDADE', _('Unidade/Carteira')),
+    )
+    
     quantidade = models.PositiveIntegerField(_('quantidade'))
+    tipo_unidade = models.CharField(_('tipo de unidade'), max_length=10, choices=UNIDADE_CHOICES, default='CAIXA')
     preco_custo_unitario = models.DecimalField(_('custo unitário'), max_digits=10, decimal_places=2)
     
     # Lote e Validade

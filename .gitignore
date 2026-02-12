@@ -128,9 +128,9 @@ Thumbs.db
 *.db
 
 # Secrets
-.env
+#.env
 .env.local
-.env.production
+#.env.production
 secrets/
 *.pem
 *.key

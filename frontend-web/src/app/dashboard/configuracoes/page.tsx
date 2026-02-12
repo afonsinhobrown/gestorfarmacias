@@ -29,7 +29,11 @@ export default function ConfiguracoesPage() {
         banco_conta: '',
         banco_nib: '',
         mpesa_numero: '',
-        emola_numero: ''
+        emola_numero: '',
+        percentual_comissao_padrao: 0,
+        meta_bonus_mensal: 0,
+        percentual_bonus_extra: 0,
+        logo: null
     });
 
     useEffect(() => {
@@ -57,8 +61,27 @@ export default function ConfiguracoesPage() {
         e.preventDefault();
         setSaving(true);
         try {
-            await api.patch('/farmacias/me/', farmacia);
+            // Se houver arquivo de logo, usamos FormData
+            let data: any = farmacia;
+
+            // Para garantir que enviamos dados limpos ao backend
+            const formData = new FormData();
+            Object.keys(farmacia).forEach(key => {
+                if (key === 'logo' && farmacia[key] instanceof File) {
+                    formData.append('logo', farmacia[key]);
+                } else if (key !== 'logo' && farmacia[key] !== null) {
+                    formData.append(key, farmacia[key]);
+                }
+            });
+
+            await api.patch('/farmacias/me/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             toast.success("Configurações salvas com sucesso!");
+
+            // Recarregar dados para atualizar URLs de imagem
+            const res = await api.get('/farmacias/me/');
+            setFarmacia(res.data);
         } catch (error) {
             console.error("Erro ao salvar:", error);
             toast.error("Erro ao salvar configurações.");
@@ -97,14 +120,16 @@ export default function ConfiguracoesPage() {
 
                         {/* Upload de Logotipo */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-3">Logotipo da Farmácia</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-3">Logotipo da Farmácia (Para Relatórios)</label>
                             <div className="flex items-center gap-4">
-                                {farmacia.logotipo && (
-                                    <img
-                                        src={farmacia.logotipo}
-                                        alt="Logotipo"
-                                        className="w-20 h-20 object-contain bg-white rounded-lg border-2 border-gray-200"
-                                    />
+                                {farmacia.logo && (
+                                    <div className="w-20 h-20 bg-white rounded-lg border-2 border-gray-200 flex items-center justify-center overflow-hidden">
+                                        <img
+                                            src={typeof farmacia.logo === 'string' ? farmacia.logo : URL.createObjectURL(farmacia.logo)}
+                                            alt="Logotipo"
+                                            className="max-w-full max-h-full object-contain text-[8px]"
+                                        />
+                                    </div>
                                 )}
                                 <div className="flex-1">
                                     <input
@@ -113,12 +138,12 @@ export default function ConfiguracoesPage() {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
-                                                toast.info('Upload de logotipo em desenvolvimento');
+                                                setFarmacia({ ...farmacia, logo: file });
                                             }
                                         }}
                                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">PNG, JPG ou SVG (máx. 2MB)</p>
+                                    <p className="text-xs text-gray-500 mt-1">PNG ou JPG (Aparecerá nos recibos e faturas)</p>
                                 </div>
                             </div>
                         </div>
@@ -202,6 +227,47 @@ export default function ConfiguracoesPage() {
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Email de Suporte</label>
                                 <input name="email" value={farmacia.email || ''} onChange={handleChange} className="w-full p-3 bg-gray-50 rounded-xl" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-3 mb-6">
+                            <ShieldCheck className="text-amber-500" size={24} />
+                            <h2 className="text-lg font-bold text-gray-800">Comissões e Bónus</h2>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Comissão Padrão (%)</label>
+                                <input
+                                    type="number"
+                                    name="percentual_comissao_padrao"
+                                    value={farmacia.percentual_comissao_padrao || 0}
+                                    onChange={handleChange}
+                                    className="w-full p-3 bg-gray-50 rounded-xl"
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">Aplicada se o produto não tiver valor específico.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Meta de Vendas Mensal (MTn)</label>
+                                <input
+                                    type="number"
+                                    name="meta_bonus_mensal"
+                                    value={farmacia.meta_bonus_mensal || 0}
+                                    onChange={handleChange}
+                                    className="w-full p-3 bg-gray-50 rounded-xl"
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">Volume para desbloquear bónus extra.</p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Bónus Extra por Meta Atingida (%)</label>
+                                <input
+                                    type="number"
+                                    name="percentual_bonus_extra"
+                                    value={farmacia.percentual_bonus_extra || 0}
+                                    onChange={handleChange}
+                                    className="w-full p-3 bg-gray-50 rounded-xl"
+                                />
                             </div>
                         </div>
                     </section>

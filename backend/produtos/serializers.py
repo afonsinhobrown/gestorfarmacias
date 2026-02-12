@@ -18,7 +18,7 @@ class ProdutoSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'nome', 'nome_generico', 'codigo_barras', 
             'categoria', 'categoria_nome', 'tipo',
-            'descricao', 'composicao', 'fabricante',
+            'descricao', 'composicao', 'fabricante', 'pais_origem',
             'requer_receita', 'forma_farmaceutica', 
             'concentracao', 'quantidade_embalagem',
             'unidade_medida', 'unidades_por_caixa',
@@ -42,7 +42,7 @@ class EstoqueFarmaciaSerializer(serializers.ModelSerializer):
             'farmacia_latitude', 'farmacia_longitude',
             'preco_venda', 'preco_promocional', 
             'em_promocao', 'preco_final',
-            'quantidade', 'is_disponivel', 'data_validade'
+            'quantidade', 'quantidade_formatada', 'is_disponivel', 'data_validade'
         )
 
 
@@ -59,7 +59,7 @@ class EstoqueGestaoSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'farmacia', 'produto', 'produto_nome', 'produto_codigo',
             'unidades_por_caixa', 'permite_venda_avulsa', 'percentual_comissao',
-            'quantidade', 'quantidade_minima', 'lote', 'local',
+            'quantidade', 'quantidade_formatada', 'quantidade_minima', 'lote', 'local',
             'data_fabricacao', 'data_validade', 'preco_custo', 
             'preco_venda', 'preco_promocional', 'preco_venda_avulso',
             'em_promocao', 'localizacao_estoque', 'is_disponivel'
@@ -131,7 +131,7 @@ class ItemEntradaSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ItemEntrada
-        fields = ('id', 'produto', 'produto_nome', 'quantidade', 'preco_custo_unitario', 'lote', 'data_validade', 'subtotal')
+        fields = ('id', 'produto', 'produto_nome', 'quantidade', 'tipo_unidade', 'preco_custo_unitario', 'lote', 'data_validade', 'subtotal')
         read_only_fields = ('subtotal',)
 
 class EntradaEstoqueSerializer(serializers.ModelSerializer):
@@ -178,44 +178,48 @@ class EntradaEstoqueSerializer(serializers.ModelSerializer):
             item = ItemEntrada.objects.create(entrada=entrada, **item_data)
             total_entrada += (item.quantidade * item.preco_custo_unitario)
             
-            # 1. Atualizar Estoque (Coração do Sistema)
+            # 1. Calcular quantidade real de entrada (converter caixas para unidades se necessário)
+            # Verifica se a entrada foi informada como UNIDADE ou CAIXA
+            tipo_u = item_data.get('tipo_unidade', 'CAIXA')
+            if tipo_u == 'CAIXA':
+                qtd_unidades_entrada = item.quantidade * item.produto.unidades_por_caixa
+            else:
+                qtd_unidades_entrada = item.quantidade # Já é a unidade final (carteira)
+            
             estoque, created = EstoqueProduto.objects.get_or_create(
                 farmacia=farmacia,
                 produto=item.produto,
                 lote=item.lote,
                 defaults={
-                    'preco_custo': item.preco_custo_unitario, # Primeiro custo
-                    'preco_venda': item.preco_custo_unitario * 1.5, # Margem padrão 50% se novo
-                    'data_validade': item.data_validade
+                    'preco_custo': item.preco_custo_unitario,
+                    'preco_venda': item.preco_custo_unitario * 1.5,
+                    'data_validade': item.data_validade,
+                    'quantidade': 0 # Começa com zero para somar abaixo
                 }
             )
             
-            # Salvar snapshot financeiro para Kardex
-            custo_anterior = estoque.preco_custo
-            
             # Atualizar custo médio ponderado
-            # (QtdAtual * CustoAtual + QtdEntrada * CustoEntrada) / (QtdTotal)
-            nova_qtd_total = estoque.quantidade + item.quantidade
+            nova_qtd_total = estoque.quantidade + qtd_unidades_entrada
             if not created and nova_qtd_total > 0:
                 custo_total = (estoque.quantidade * estoque.preco_custo) + (item.quantidade * item.preco_custo_unitario)
                 estoque.preco_custo = custo_total / nova_qtd_total
             
-            estoque.quantidade += item.quantidade
+            estoque.quantidade += qtd_unidades_entrada
             if item.data_validade: 
                 estoque.data_validade = item.data_validade
             estoque.save()
             
-            # 2. Gerar Kardex (Movimentação)
+            # 2. Gerar Kardex (Movimentação) com a quantidade real (unidades/carteiras)
             MovimentacaoEstoque.objects.create(
                 estoque=estoque,
                 tipo='ENTRADA',
-                quantidade=item.quantidade,
-                quantidade_anterior=estoque.quantidade - item.quantidade,
+                quantidade=qtd_unidades_entrada,
+                quantidade_anterior=estoque.quantidade - qtd_unidades_entrada,
                 quantidade_nova=estoque.quantidade,
                 custo_unitario=item.preco_custo_unitario,
                 usuario=request.user,
                 referencia_externa=f"Nota {entrada.numero_nota}",
-                motivo="Entrada de Nota Fiscal / Compra"
+                motivo=f"Entrada NF - {item.quantidade} cx convertidas para {qtd_unidades_entrada} un"
             )
 
         # Atualizar total da entrada se não foi passado ou for diferente

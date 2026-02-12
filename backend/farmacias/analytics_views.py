@@ -61,17 +61,49 @@ class DashboardStatsView(APIView):
                 'data_criacao': v.data_criacao
             })
 
-        # 7. Notificações Críticas
+        # 7. Produtos Próximos do Vencimento (Próximos 90 dias)
+        noventa_dias = hoje + timedelta(days=90)
+        vencendo_breve = estoques.filter(
+            data_validade__gt=hoje, 
+            data_validade__lte=noventa_dias
+        ).count()
+        
+        expirados = estoques.filter(data_validade__lte=hoje).count()
+
+        # 8. Alertas Críticos (Ruptura, Baixo Stock e Validade)
+        avisos = []
+        # Rupturas
+        for e in estoques.filter(quantidade=0)[:5]:
+            avisos.append({
+                'id': f'rupt-{e.id}',
+                'tipo': 'RUPTURA',
+                'titulo': f'Stock Zerado: {e.produto.nome}',
+                'mensagem': f'O produto da {e.produto.fabricante or "N/D"} está esgotado no local {e.local}.'
+            })
+        
+        # Expirados
+        for e in estoques.filter(data_validade__lte=hoje)[:5]:
+            avisos.append({
+                'id': f'exp-{e.id}',
+                'tipo': 'EXPIRADO',
+                'titulo': f'Lote Expirado: {e.produto.nome}',
+                'mensagem': f'Lote {e.lote} expirou em {e.data_validade.strftime("%d/%m/%Y")}. Remova da prateleira.'
+            })
+
+        # 9. Notificações Críticas (Geral)
         alertas = Notificacao.objects.filter(farmacia=farmacia, lida=False).count()
 
         return Response({
             'vendas_hoje': vendas_hoje,
-            'ticket_medio': ticket_medio,
+            'ticket_medio_hoje': ticket_medio,
             'pedidos_pendentes': pendentes,
-            'estoque_reptura': ruptura,
+            'ruptura_stock': ruptura,
             'estoque_critico': critico,
+            'vencendo_vencedor': vencendo_breve,
+            'expirados': expirados,
             'entregas_concluidas': entregas_concluidas,
             'vendas_recentes': vendas_data,
+            'avisos': avisos,
             'alertas_pendentes': alertas
         })
 

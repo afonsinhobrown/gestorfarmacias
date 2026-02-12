@@ -137,36 +137,65 @@ class ExtratoVendasView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        from django.db.models import F, ExpressionWrapper, DecimalField, Sum
-        from .models import ItemPedido
-        
         farmacia = request.user.farmacia
         data_inicio = request.query_params.get('data_inicio')
         data_fim = request.query_params.get('data_fim')
+        vendedor_id = request.query_params.get('vendedor')
+        export_csv = request.query_params.get('export') == 'true'
         
-        pedidos = Pedido.objects.filter(farmacia=farmacia).exclude(status='CANCELADO').select_related('vendedor', 'cliente').order_by('-data_criacao')
+        # Segurança: Se não for Gerente/Admin, vê apenas as SUAS vendas
+        if request.user.tipo_usuario not in ['ADMIN', 'FARMACIA']:
+            pedidos = Pedido.objects.filter(farmacia=farmacia, vendedor=request.user)
+        else:
+            pedidos = Pedido.objects.filter(farmacia=farmacia)
+            
+        pedidos = pedidos.exclude(status='CANCELADO').select_related('vendedor', 'cliente').order_by('-data_criacao')
         
         if data_inicio:
             pedidos = pedidos.filter(data_criacao__date__gte=data_inicio)
         if data_fim:
             pedidos = pedidos.filter(data_criacao__date__lte=data_fim)
+        if vendedor_id:
+            pedidos = pedidos.filter(vendedor_id=vendedor_id)
+            
+        if export_csv:
+            import csv
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="extrato_vendas_{timezone.now().strftime("%Y%m%d")}.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Pedido', 'Data', 'Cliente', 'Vendedor', 'Pagamento', 'Total', 'Lucro'])
+            for p in pedidos:
+                # Calcular lucro rapidamente para o CSV
+                lucro = sum(float(i.preco_unitario - (i.estoque.preco_custo if i.estoque else 0)) * i.quantidade for i in p.itens.all())
+                writer.writerow([p.numero_pedido, p.data_criacao, p.cliente.get_full_name() if p.cliente else 'Balcão', p.vendedor.get_full_name() if p.vendedor else '-', p.forma_pagamento, p.total, round(lucro, 2)])
+            return response
             
         dados = []
         total_geral_faturado = 0
         total_geral_lucro = 0
+        total_geral_iva = 0
         
         for p in pedidos:
-            # Calcular lucro do pedido
-            # Lucro = Sum(Item.total - (Item.estoque.preco_custo * Item.quantidade))
             lucro_pedido = 0
+            iva_pedido = 0
             for item in p.itens.all():
+                # Proteção contra Estoque removido ou preços nulos
                 custo = float(item.estoque.preco_custo if item.estoque else 0)
-                venda = float(item.preco_unitario)
-                lucro_item = (venda - custo) * item.quantidade
+                venda = float(item.preco_unitario or 0)
+                lucro_item = (venda - custo) * (item.quantidade or 0)
                 lucro_pedido += lucro_item
+
+                # Cálculo Item a Item de IVA
+                if not item.produto.is_isento_iva:
+                    taxa = float(item.produto.taxa_iva or 16) / 100
+                    valor_com_iva = float(item.subtotal)
+                    base = valor_com_iva / (1 + taxa)
+                    iva_item = valor_com_iva - base
+                    iva_pedido += iva_item
             
-            total_geral_faturado += float(p.total)
+            total_geral_faturado += float(p.total or 0)
             total_geral_lucro += lucro_pedido
+            total_geral_iva += iva_pedido
             
             dados.append({
                 'id': p.id,
@@ -175,15 +204,17 @@ class ExtratoVendasView(APIView):
                 'cliente': p.cliente.get_full_name() if p.cliente else 'Consumidor Final',
                 'vendedor': p.vendedor.get_full_name() if p.vendedor else 'Sistema',
                 'forma_pagamento': p.forma_pagamento,
-                'total': float(p.total),
+                'total': float(p.total or 0),
+                'iva': round(iva_pedido, 2),
                 'lucro': round(lucro_pedido, 2),
-                'margem': round((lucro_pedido / float(p.total) * 100), 2) if float(p.total) > 0 else 0
+                'margem': round((lucro_pedido / float(p.total) * 100), 2) if p.total and float(p.total) > 0 else 0
             })
             
         return Response({
             'periodo': {'inicio': data_inicio, 'fim': data_fim},
             'resumo': {
                 'total_faturado': round(total_geral_faturado, 2),
+                'total_iva': round(total_geral_iva, 2),
                 'total_lucro': round(total_geral_lucro, 2),
                 'margem_media': round((total_geral_lucro / total_geral_faturado * 100), 2) if total_geral_faturado > 0 else 0
             },
@@ -209,6 +240,7 @@ class ComissaoView(APIView):
             
             data_inicio = request.query_params.get('data_inicio')
             data_fim = request.query_params.get('data_fim')
+            vendedor_especifico = request.query_params.get('vendedor')
             
             # Filtro de pedidos concluídos e pagos
             pedidos = Pedido.objects.filter(farmacia=farmacia, status='ENTREGUE', pago=True)
@@ -218,17 +250,19 @@ class ComissaoView(APIView):
             if data_fim:
                 pedidos = pedidos.filter(data_criacao__date__lte=data_fim)
                 
-            # Buscar usuários da farmácia (dono ou funcionários)
+            # Buscar usuários da farmácia
             vendedores_qs = User.objects.filter(
                 Q(farmacia_perfil=farmacia) | 
                 Q(funcionario_perfil__farmacia=farmacia)
             ).distinct()
+
+            if vendedor_especifico:
+                vendedores_qs = vendedores_qs.filter(id=vendedor_especifico)
             
             relatorio = []
             total_geral_comissoes = 0
             
             for v in vendedores_qs:
-                # Filtrar itens de pedidos do vendedor que estão nos pedidos filtrados
                 itens_vendedor = ItemPedido.objects.filter(
                     pedido__in=pedidos,
                     pedido__vendedor=v
@@ -239,24 +273,34 @@ class ComissaoView(APIView):
                     total_comissoes=Sum('valor_comissao')
                 )
                 
-                faturado = stats['total_vendas'] or 0
-                comissao_acumulada = stats['total_comissoes'] or 0
+                faturado = float(stats['total_vendas'] or 0)
+                comissao_acumulada = float(stats['total_comissoes'] or 0)
                 qtd_vendas = pedidos.filter(vendedor=v).count()
                 
-                if faturado > 0:
-                    relatorio.append({
-                        'vendedor_id': v.id,
-                        'nome': v.get_full_name() or v.username,
-                        'total_vendas': float(faturado),
-                        'quantidade_vendas': qtd_vendas,
-                        'comissao': float(comissao_acumulada),
-                        # Média ponderada do percentual para exibição
-                        'percentual_medio': round((float(comissao_acumulada) / float(faturado) * 100), 2) if faturado > 0 else 0
-                    })
-                    total_geral_comissoes += float(comissao_acumulada)
+                # Sempre incluir no relatório para o gestor ver a lista completa da equipa
+                relatorio.append({
+                    'vendedor_id': v.id,
+                    'nome': v.get_full_name(),
+                    'total_vendas': faturado,
+                    'quantidade_vendas': qtd_vendas,
+                    'comissao': comissao_acumulada,
+                    'percentual_medio': round((comissao_acumulada / faturado * 100), 2) if faturado > 0 else 0
+                })
+                total_geral_comissoes += comissao_acumulada
+            
+            # Resumo de Meta e Bónus
+            total_vendas_periodo = sum(v['total_vendas'] for v in relatorio)
+            meta_mensal = float(farmacia.meta_bonus_mensal or 0)
+            meta_atingida = total_vendas_periodo >= meta_mensal if meta_mensal > 0 else False
             
             return Response({
                 'periodo': {'inicio': data_inicio, 'fim': data_fim},
+                'farmacia': {
+                    'meta_bonus': meta_mensal,
+                    'total_vendas': total_vendas_periodo,
+                    'meta_atingida': meta_atingida,
+                    'percentual_bonus_extra': float(farmacia.percentual_bonus_extra or 0)
+                },
                 'vendedores': sorted(relatorio, key=lambda x: x['total_vendas'], reverse=True),
                 'total_geral_comissoes': total_geral_comissoes
             })
@@ -427,6 +471,13 @@ class RelatorioVendasPDFView(APIView):
 
         def draw_header():
             nonlocal y
+            # Tentar desenhar o logotipo se existir
+            if farmacia.logo:
+                try:
+                    p.drawImage(farmacia.logo.path, 1.5 * cm, height - 2.5 * cm, width=2.5 * cm, preserveAspectRatio=True, mask='auto')
+                except Exception as e:
+                    print(f"Erro ao carregar logo no PDF: {e}")
+
             p.setFont("Helvetica-Bold", 16)
             p.drawCentredString(width / 2, height - 1.5 * cm, farmacia.nome.upper())
             p.setFont("Helvetica", 9)

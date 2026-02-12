@@ -19,6 +19,7 @@ interface ProdutoEstoque {
     lote: string;
     permite_venda_avulsa?: boolean;
     unidades_por_caixa?: number;
+    quantidade_formatada?: string;
 }
 
 interface ItemCarrinho extends ProdutoEstoque {
@@ -219,25 +220,33 @@ export default function VendasPOSPage() {
                                                 {statusText}
                                             </div>
 
-                                            {prod.quantidade === 0 && (
+                                            {prod.quantidade === 0 ? (
                                                 <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
                                                     <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">Esgotado</span>
+                                                </div>
+                                            ) : (
+                                                <div className="absolute bottom-2 left-2 bg-white/90 px-2 py-1 rounded-lg shadow-sm border border-gray-100">
+                                                    <span className="text-[10px] font-black text-gray-700 uppercase">{prod.quantidade_formatada}</span>
                                                 </div>
                                             )}
                                         </div>
 
-                                        <h3 className="font-bold text-gray-900 text-sm line-clamp-2 mb-2 min-h-[2.5rem] leading-tight">
+                                        <h3 className="font-bold text-gray-900 text-sm line-clamp-1 mb-0 leading-tight">
                                             {prod.produto_nome}
                                         </h3>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter mb-2">
+                                            {prod.fabricante || 'Fabricante N/D'} • {prod.pais_origem || 'Origem N/D'}
+                                        </p>
 
                                         <div className="mt-auto space-y-2">
                                             {/* Preço Normal / Caixa */}
                                             <button
                                                 onClick={() => adicionarAoCarrinho(prod, false)}
-                                                className="w-full flex items-center justify-between p-2 rounded-xl bg-blue-50 hover:bg-blue-600 group/btn transition-all"
+                                                className="w-full flex items-center justify-between p-2 rounded-xl bg-blue-50 hover:bg-blue-600 group/btn transition-all border border-blue-100"
                                             >
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-[10px] font-bold text-blue-600 group-hover/btn:text-blue-100 uppercase">Integral</span>
+                                                    <span className="text-[10px] font-bold text-blue-600 group-hover/btn:text-blue-100 uppercase">CAIXA Toda</span>
+                                                    <span className="text-[9px] text-blue-400 group-hover/btn:text-blue-200 mt-[-2px]">-{prod.unidades_por_caixa || 1} un</span>
                                                     <span className="text-sm font-black text-blue-900 group-hover/btn:text-white">
                                                         {formatPrice(parseFloat(prod.preco_venda))}
                                                     </span>
@@ -251,10 +260,11 @@ export default function VendasPOSPage() {
                                             {prod.permite_venda_avulsa && (
                                                 <button
                                                     onClick={() => adicionarAoCarrinho(prod, true)}
-                                                    className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 group/btn transition-all"
+                                                    className="w-full flex items-center justify-between p-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 group/btn transition-all border border-emerald-100"
                                                 >
                                                     <div className="flex flex-col items-start">
-                                                        <span className="text-[10px] font-bold text-emerald-600 group-hover/btn:text-emerald-100 uppercase">Avulso</span>
+                                                        <span className="text-[10px] font-bold text-emerald-600 group-hover/btn:text-emerald-100 uppercase">CARTEIRA</span>
+                                                        <span className="text-[9px] text-emerald-400 group-hover/btn:text-emerald-200 mt-[-2px]">-1 unit</span>
                                                         <span className="text-sm font-black text-emerald-900 group-hover/btn:text-white">
                                                             {formatPrice(parseFloat(prod.preco_venda_avulso || '0'))}
                                                         </span>

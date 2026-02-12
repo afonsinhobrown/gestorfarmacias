@@ -127,14 +127,14 @@ class VendaBalcaoSerializer(serializers.Serializer):
         with transaction.atomic():
             # 1. Criar o Pedido
             pedido = Pedido.objects.create(
-                cliente=user, # Na venda balcão, o 'cliente' é o próprio user da farmácia por enquanto
-                vendedor=user, # Rastreio de quem fez a venda
+                cliente=user, 
+                vendedor=user, 
                 farmacia=user.farmacia,
                 status=Pedido.StatusPedido.ENTREGUE,
                 forma_pagamento=pagamento,
-                pago=True,
-                valor_pago=validated_data.get('valor_pago', 0),
-                troco=validated_data.get('troco', 0),
+                pago=(pagamento != Pedido.FormaPagamento.CREDITO),
+                valor_pago=validated_data.get('valor_pago', 0) if pagamento != Pedido.FormaPagamento.CREDITO else 0,
+                troco=validated_data.get('troco', 0) if pagamento != Pedido.FormaPagamento.CREDITO else 0,
                 endereco_entrega="BALCÃO",
                 bairro="-", cidade="-",
                 telefone_contato="-",
@@ -152,9 +152,23 @@ class VendaBalcaoSerializer(serializers.Serializer):
 
                 estoque = EstoqueProduto.objects.select_for_update().get(id=item_estoque_id)
                 
+                # Calcular baixa de estoque real
+                # Se for integral (Caixa), subtrai (quantidade * unidades_por_caixa)
+                # Se for avulso (Carteira), subtrai apenas a quantidade
+                baixa_real = item_qtd
+                if not item_is_avulso:
+                    baixa_real = item_qtd * estoque.produto.unidades_por_caixa
+
+                if estoque.quantidade < baixa_real:
+                    raise serializers.ValidationError(f"Estoque insuficiente para {estoque.produto.nome} (Solicitado: {baixa_real} unidades)")
+
                 # Calcular Comissão
                 subtotal_item = item_qtd * item_preco
+                # Usa a comissão do produto ou a padrão da farmácia
                 percentual = estoque.produto.percentual_comissao
+                if percentual <= 0:
+                    percentual = user.farmacia.percentual_comissao_padrao
+                    
                 valor_comis = (subtotal_item * percentual) / 100
 
                 # Criar ItemPedido
@@ -171,21 +185,21 @@ class VendaBalcaoSerializer(serializers.Serializer):
                 
                 # Baixar Estoque e Registrar Movimentação
                 quantidade_anterior = estoque.quantidade
-                estoque.quantidade -= item_qtd
+                estoque.quantidade -= baixa_real
                 estoque.save()
 
                 from produtos.models import MovimentacaoEstoque
                 MovimentacaoEstoque.objects.create(
                     estoque=estoque,
                     tipo='SAIDA',
-                    quantidade=item_qtd,
+                    quantidade=baixa_real,
                     quantidade_anterior=quantidade_anterior,
                     quantidade_nova=estoque.quantidade,
                     custo_unitario=estoque.preco_custo,
                     preco_venda_unitario=item_preco,
                     usuario=user,
                     referencia_externa=f"Venda {pedido.numero_pedido}",
-                    motivo="Venda de Balcão (POS)"
+                    motivo=f"Venda de Balcão (POS) - {'Avulso' if item_is_avulso else 'Integral'}"
                 )
             
             pedido.calcular_total()
@@ -213,7 +227,9 @@ class VendaBalcaoSerializer(serializers.Serializer):
                 {
                     'produto': i.produto.nome,
                     'qty': i.quantidade,
-                    'total': float(i.subtotal)
+                    'total': float(i.subtotal),
+                    'is_isento': i.produto.is_isento_iva,
+                    'taxa_iva': float(i.produto.taxa_iva)
                 } for i in instance.itens.all()
             ]
         }

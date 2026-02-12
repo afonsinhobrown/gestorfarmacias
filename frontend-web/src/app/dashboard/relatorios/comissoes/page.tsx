@@ -17,6 +17,7 @@ interface VendedorComissao {
 
 export default function ComissoesPage() {
     const [relatorio, setRelatorio] = useState<VendedorComissao[]>([]);
+    const [farmaciaInfo, setFarmaciaInfo] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [dataInicio, setDataInicio] = useState('');
     const [dataFim, setDataFim] = useState('');
@@ -35,6 +36,7 @@ export default function ComissoesPage() {
 
             const res = await api.get(`${url}?${params.toString()}`);
             setRelatorio(res.data.vendedores || []);
+            setFarmaciaInfo(res.data.farmacia || null);
         } catch (error: any) {
             console.error('Erro ao buscar comissões:', error);
             const errorMsg = error.response?.data?.error || error.response?.data?.detail || 'Erro ao carregar relatório de comissões.';
@@ -53,8 +55,8 @@ export default function ComissoesPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Gestão de Comissões</h1>
-                    <p className="text-sm text-gray-500 font-medium">Acompanhe a performance da equipe e o cálculo de incentivos (2% sobre vendas pagas).</p>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">Gestão de Comissões e Performance</h1>
+                    <p className="text-sm text-gray-500 font-medium">Acompanhe a performance da equipe e o cálculo de bônus baseado nas vendas concluídas.</p>
                 </div>
             </div>
 
@@ -138,14 +140,53 @@ export default function ComissoesPage() {
                 )}
             </div>
 
-            <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl">
+            {farmaciaInfo && farmaciaInfo.meta_bonus > 0 && (
+                <div className={`p-8 rounded-3xl border shadow-xl transition-all ${farmaciaInfo.meta_atingida ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-white border-blue-100 text-gray-900'}`}>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <TrendingUp size={20} className={farmaciaInfo.meta_atingida ? 'text-emerald-200' : 'text-blue-500'} />
+                                <h3 className="font-black uppercase tracking-widest text-xs">Meta de Performance Mensal</h3>
+                            </div>
+                            <h2 className="text-3xl font-black">
+                                {formatPrice(farmaciaInfo.total_vendas)}
+                                <span className={`text-sm font-bold ml-2 opacity-60`}> / {formatPrice(farmaciaInfo.meta_bonus)}</span>
+                            </h2>
+                            <p className={`text-xs font-bold uppercase tracking-widest opacity-70`}>
+                                {farmaciaInfo.meta_atingida
+                                    ? `PARABÉNS! Meta atingida. Bónus extra de ${farmaciaInfo.percentual_bonus_extra}% liberado.`
+                                    : `Faltam ${formatPrice(farmaciaInfo.meta_bonus - farmaciaInfo.total_vendas)} para liberar o bónus extra de ${farmaciaInfo.percentual_bonus_extra}%.`
+                                }
+                            </p>
+                        </div>
+
+                        <div className="w-full md:w-64 space-y-2">
+                            <div className="flex justify-between text-[10px] font-black uppercase">
+                                <span>Progresso</span>
+                                <span>{Math.round((farmaciaInfo.total_vendas / farmaciaInfo.meta_bonus) * 100)}%</span>
+                            </div>
+                            <div className={`h-4 w-full rounded-full overflow-hidden border-2 p-0.5 ${farmaciaInfo.meta_atingida ? 'bg-emerald-700 border-emerald-400' : 'bg-gray-100 border-gray-100'}`}>
+                                <div
+                                    className={`h-full rounded-full transition-all duration-1000 ${farmaciaInfo.meta_atingida ? 'bg-white' : 'bg-blue-600'}`}
+                                    style={{ width: `${Math.min(100, (farmaciaInfo.total_vendas / farmaciaInfo.meta_bonus) * 100)}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl">
                 <div className="flex gap-4">
-                    <div className="p-3 bg-white rounded-2xl text-emerald-600 shadow-sm">
+                    <div className="p-3 bg-white rounded-2xl text-blue-600 shadow-sm">
                         <BarChart3 size={24} />
                     </div>
                     <div>
-                        <h4 className="font-black text-emerald-900 uppercase tracking-tighter">Resumo de Incentivos</h4>
-                        <p className="text-sm text-emerald-700 font-medium">As comissões são calculadas apenas sobre vendas com status ENTREGUE e PAGAMENTO COMPROVADO. Devoluções e cancelamentos não geram bônus.</p>
+                        <h4 className="font-black text-blue-900 uppercase tracking-tighter">Regras de Comissionamento</h4>
+                        <p className="text-sm text-blue-700 font-medium">
+                            As comissões são calculadas automaticamente com base no percentual de cada produto ou no percentual padrão da farmácia configurado em "Definições".
+                            Apenas vendas <strong>PAGAS</strong> e <strong>ENTREGUES</strong> são contabilizadas.
+                        </p>
                     </div>
                 </div>
             </div>

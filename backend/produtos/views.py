@@ -72,16 +72,16 @@ class ProdutoListView(generics.ListCreateAPIView):
     serializer_class = ProdutoSerializer
     permission_classes = (permissions.AllowAny,)
     filter_backends = (DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter)
-    filterset_fields = ('categoria', 'tipo', 'requer_receita')
+    filterset_fields = ('categoria', 'tipo', 'requer_receita', 'is_isento_iva')
     search_fields = ('nome', 'nome_generico', 'fabricante', 'indicacao')
     ordering_fields = ('nome', 'fabricante')
 
 
-class ProdutoDetailView(generics.RetrieveAPIView):
-    """Detalhes de um produto."""
-    queryset = Produto.objects.filter(is_ativo=True)
+class ProdutoDetailView(generics.RetrieveUpdateAPIView):
+    """Detalhes e Atualização de um produto."""
+    queryset = Produto.objects.all()
     serializer_class = ProdutoSerializer
-    permission_classes = (permissions.AllowAny,)
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
 
 class ProdutoDisponibilidadeView(generics.ListAPIView):
@@ -134,6 +134,16 @@ class EstoqueFarmaciaListView(generics.ListCreateAPIView):
             serializer.save(farmacia=self.request.user.farmacia)
         else:
             raise serializers.ValidationError("Usuário não possui farmácia vinculada.")
+
+class EstoqueFarmaciaDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Visualiza, atualiza e remove um item do estoque da farmácia."""
+    serializer_class = EstoqueGestaoSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        if hasattr(self.request.user, 'farmacia'):
+            return EstoqueProduto.objects.filter(farmacia=self.request.user.farmacia)
+        return EstoqueProduto.objects.none()
 
 # --- Entradas de Estoque ---
 from .models import EntradaEstoque

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuthStore } from '@/store/useAuthStore';
-import { ShoppingBag, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ShoppingBag, TrendingUp, AlertTriangle, CheckCircle, History } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
@@ -48,11 +48,11 @@ export default function FarmaciaDashboard() {
             description: 'Produtos abaixo do mínimo ou ruptura'
         },
         {
-            title: 'Entregas Concluídas',
-            value: loading ? '...' : (stats?.entregas_concluidas || 0).toString(),
-            icon: CheckCircle,
-            color: 'bg-indigo-500',
-            description: 'Últimas 24 horas'
+            title: 'Controlo de Validade',
+            value: loading ? '...' : ((stats?.expirados || 0) + (stats?.vencendo_vencedor || 0)).toString(),
+            icon: History,
+            color: 'bg-red-600',
+            description: 'Produtos expirados ou a vencer'
         }
     ];
 

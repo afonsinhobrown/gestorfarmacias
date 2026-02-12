@@ -128,6 +128,29 @@ class Farmacia(models.Model):
         default=0.0
     )
     
+    # Configurações de Comissões e Bónus (Centrais)
+    percentual_comissao_padrao = models.DecimalField(
+        _('comissão padrão (%)'), 
+        max_digits=5, 
+        decimal_places=2, 
+        default=0.00,
+        help_text=_('Percentual aplicado se o produto não tiver uma comissão específica')
+    )
+    meta_bonus_mensal = models.DecimalField(
+        _('meta de bónus mensal'), 
+        max_digits=12, 
+        decimal_places=2, 
+        default=0.00,
+        help_text=_('Volume de vendas necessário para desbloquear bónus extra da equipa')
+    )
+    percentual_bonus_extra = models.DecimalField(
+        _('bónus extra (%)'), 
+        max_digits=5, 
+        decimal_places=2, 
+        default=0.00,
+        help_text=_('Percentual extra pago se a meta for atingida')
+    )
+    
     # Avaliações
     nota_media = models.DecimalField(
         _('nota média'),

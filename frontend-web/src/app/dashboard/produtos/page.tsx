@@ -623,6 +623,17 @@ export default function ProdutosPage() {
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-bold text-emerald-600 mb-1 uppercase tracking-wider text-[10px]">Preço Carteira/Avulso (Opcional)</label>
+                                <input
+                                    type="number" step="0.01"
+                                    {...register('preco_venda_avulso')}
+                                    className="w-full rounded-lg border-emerald-200 bg-emerald-50 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 p-2 border font-bold text-emerald-700"
+                                    placeholder="0.00"
+                                />
+                                <p className="text-[9px] text-emerald-600 mt-1 italic font-medium tracking-tight">Defina o preço de 1 unidade individual se desejar vender fracionado.</p>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
@@ -738,6 +749,26 @@ export default function ProdutosPage() {
                                 </div>
 
                                 <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Fabricante / Marca</label>
+                                    <input
+                                        type="text"
+                                        {...masterForm.register('fabricante')}
+                                        className="w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
+                                        placeholder="Ex: Azevedos, Pfizer..."
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">País de Origem</label>
+                                    <input
+                                        type="text"
+                                        {...masterForm.register('pais_origem')}
+                                        className="w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
+                                        placeholder="Ex: Portugal, Moçambique..."
+                                    />
+                                </div>
+
+                                <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Categoria</label>
                                     <select
                                         {...masterForm.register('categoria', { required: true })}
@@ -783,12 +814,14 @@ export default function ProdutosPage() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Qtd por Emb.</label>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Quantas Unidades/Carteiras na Caixa?</label>
                                         <input
                                             type="number"
                                             {...masterForm.register('unidades_por_caixa')}
                                             className="w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
+                                            placeholder="Ex: 4"
                                         />
+                                        <p className="text-[10px] text-gray-400 mt-1">Define quantas carteiras/strips existem dentro de 1 caixa.</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Comissão (%)</label>
@@ -807,7 +840,10 @@ export default function ProdutosPage() {
                                                 {...masterForm.register('permite_venda_avulsa')}
                                                 className="w-5 h-5 rounded text-blue-600 border-gray-300"
                                             />
-                                            <label htmlFor="avulso_check" className="text-xs font-bold text-gray-700 uppercase">Venda Avulsa?</label>
+                                            <div className="flex flex-col">
+                                                <label htmlFor="avulso_check" className="text-xs font-bold text-gray-700 uppercase">Permitir Venda de Carteira?</label>
+                                                <span className="text-[9px] text-gray-400">Ativa a venda fracionada no balcão</span>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input
