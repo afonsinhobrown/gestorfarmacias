@@ -20,6 +20,8 @@ interface ProdutoEstoque {
     permite_venda_avulsa?: boolean;
     unidades_por_caixa?: number;
     quantidade_formatada?: string;
+    fabricante?: string;
+    pais_origem?: string;
 }
 
 interface ItemCarrinho extends ProdutoEstoque {
