@@ -241,6 +241,7 @@ MPESA_CONSUMER_SECRET = config('MPESA_CONSUMER_SECRET', default='')
 FIREBASE_CREDENTIALS_PATH = config('FIREBASE_CREDENTIALS_PATH', default='')
 
 # Logging
+# Logging
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -255,24 +256,28 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'django.log',
-            'formatter': 'verbose',
-        },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'],
         'level': 'INFO',
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
 }
+
+# Optional File Logging (Development Only)
+if DEBUG:
+    log_dir = BASE_DIR / 'logs'
+    try:
+        if not log_dir.exists():
+            log_dir.mkdir(parents=True, exist_ok=True)
+            
+        LOGGING['handlers']['file'] = {
+            'class': 'logging.FileHandler',
+            'filename': log_dir / 'django.log',
+            'formatter': 'verbose',
+        }
+        LOGGING['root']['handlers'].append('file')
+    except Exception:
+        pass # Ignore file logging errors in restricted environments
 
 # Security Settings (Production)
 if not DEBUG:
