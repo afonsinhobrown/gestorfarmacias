@@ -40,10 +40,9 @@ api.interceptors.response.use(
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
                 // Usar window.location para forçar reload e limpar estados
-                // if (!window.location.pathname.includes('/login')) {
-                //     window.location.href = '/login';
-                // }
-                console.warn('Erro 401 detectado, mas redirecionamento desativado para debug.');
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = '/login';
+                }
             }
         }
         return Promise.reject(error);
