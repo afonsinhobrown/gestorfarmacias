@@ -157,8 +157,7 @@ export default function ExtratoVendasPage() {
             </button>
         </div>
 
-            {/* Resumo */ }
-    {
+            {
         resumo && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
