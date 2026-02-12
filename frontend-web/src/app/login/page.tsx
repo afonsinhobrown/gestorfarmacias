@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import api from '@/lib/api';
-import { User, Building2, Bike, Shield, Lock, Mail, ChevronRight, Info, CheckCircle2 } from 'lucide-react';
+import { User, Building2, Bike, Shield, Lock, Mail, ChevronRight, Info, CheckCircle2, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
