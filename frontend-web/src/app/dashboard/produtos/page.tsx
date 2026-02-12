@@ -38,6 +38,7 @@ interface EstoqueForm {
     data_validade: string;
     lote: string;
     local: string;
+    preco_venda_avulso?: string;
 }
 
 interface MasterProdutoForm {
