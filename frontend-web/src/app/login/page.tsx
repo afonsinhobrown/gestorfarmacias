@@ -89,7 +89,11 @@ export default function LoginPage() {
             const config = tipos.find(t => t.tipo === tipoSelecionado);
             router.push(config?.rota || '/');
         } catch (error: any) {
-            toast.error(error.response?.data?.detail || 'Credenciais inválidas ou erro no servidor.');
+            console.error('[LOGIN ERROR]', error);
+            const detail = error.response?.data?.detail;
+            const nonFieldErrors = error.response?.data?.non_field_errors;
+            const message = detail || (Array.isArray(nonFieldErrors) ? nonFieldErrors[0] : null) || 'Credenciais inválidas ou erro no servidor.';
+            toast.error(message);
         } finally {
             setLoading(false);
         }
