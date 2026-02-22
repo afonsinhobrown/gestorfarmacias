@@ -28,8 +28,20 @@ class ConfigService extends GetxService {
     if (defaultTargetPlatform == TargetPlatform.windows) {
       return 'http://localhost:8000/api/v1/';
     }
+
+    // Android Emulator
+    if (defaultTargetPlatform == TargetPlatform.android) {
+        // Se estiver num emulador real (não físico)
+        // 10.0.2.2 é o alias para o localhost da máquina hospedeira
+        return 'http://10.0.2.2:8000/api/v1/';
+    }
     
-    // Produção - URL do Render
+    // iOS Simulator
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return 'http://localhost:8000/api/v1/';
+    }
+    
+    // Produção - URL do Render (Fallback)
     return 'https://gestorfarmacias-backend.onrender.com/api/v1/';
   }
 

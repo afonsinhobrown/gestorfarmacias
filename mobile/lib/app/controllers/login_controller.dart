@@ -29,26 +29,33 @@ class LoginController extends GetxController {
     try {
       isLoading.value = true;
       final response = await _apiProvider.login(
-        emailController.text.trim(), 
+        emailController.text.trim().toLowerCase(), 
         passwordController.text
       );
 
       print('Login Response: ${response.data}'); // Debug
 
       if (response.statusCode == 200) {
+        if (response.data['user'] == null) {
+          throw 'Dados do usuário não encontrados na resposta';
+        }
+        
         final token = response.data['access'];
-        // O backend retorna user aninhado em 'user'
         final userData = User.fromJson(response.data['user']);
         
         _authService.login(userData, token);
         
         Get.offAllNamed(Routes.HOME);
-        Get.snackbar('Sucesso', 'Bem-vindo ${userData.firstName}!');
+        Get.snackbar('Sucesso', 'Bem-vindo ${userData.firstName ?? 'Usuário'}!');
       } else {
-        Get.snackbar('Erro', 'Credenciais inválidas');
+        Get.snackbar('Erro', 'Credenciais inválidas (${response.statusCode})');
       }
     } catch (e) {
-      Get.snackbar('Erro', 'Falha ao realizar login: $e');
+      String msg = e.toString();
+      if (e is dynamic && e.response?.data != null) {
+        msg = e.response.data['detail'] ?? e.response.data['error'] ?? msg;
+      }
+      Get.snackbar('Erro', 'Falha ao realizar login: $msg');
     } finally {
       isLoading.value = false;
     }

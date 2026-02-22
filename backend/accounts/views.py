@@ -215,17 +215,6 @@ class UserDetailView(generics.RetrieveUpdateAPIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """View customizada de login para retornar dados do usuário junto com o token."""
     serializer_class = CustomTokenObtainPairSerializer
-    
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        if response.status_code == 200:
-            try:
-                user = User.objects.get(email=request.data['email'])
-                user_serializer = UserSerializer(user)
-                response.data['user'] = user_serializer.data
-            except Exception:
-                pass # Caso o email não venha no request ou usuário não encontrado
-        return response
 
 
 class ListarClientesView(generics.ListAPIView):

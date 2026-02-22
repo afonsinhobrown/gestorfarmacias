@@ -55,10 +55,16 @@ class TokenPairSerializer(serializers.Serializer):
 
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .serializers import UserSerializer
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Serializer customizado que aceita email em vez de username."""
+    """Serializer customizado que aceita email em vez de username e retorna dados do usuário."""
     username_field = 'email'
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        data['user'] = UserSerializer(self.user).data
+        return data
 
 
 class FarmaciaRegistroSerializer(serializers.ModelSerializer):
