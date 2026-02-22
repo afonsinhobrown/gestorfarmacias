@@ -1,9 +1,21 @@
 import axios from 'axios';
 
+const getBaseURL = () => {
+    let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+    // Normalização: Remover ponto final acidental (ex: .com.)
+    url = url.replace(/\.+$/, '');
+
+    // Garantir que termina com /api/v1 se não estiver presente
+    if (!url.includes('/api/v1')) {
+        url = url.endsWith('/') ? `${url}api/v1` : `${url}/api/v1`;
+    }
+
+    return url;
+};
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
-
-
+    baseURL: getBaseURL(),
     headers: {
         'Content-Type': 'application/json',
     },
