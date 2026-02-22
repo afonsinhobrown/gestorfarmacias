@@ -104,6 +104,7 @@ class VendaBalcaoSerializer(serializers.Serializer):
     
     itens = serializers.ListField(child=serializers.DictField())
     cliente = serializers.CharField(required=False, allow_blank=True)
+    cliente_id = serializers.IntegerField(required=False, allow_null=True) # ID do Cliente no DB
     tipo_pagamento = serializers.ChoiceField(choices=Pedido.FormaPagamento.choices)
     receita_medica = serializers.ImageField(required=False, allow_null=True)
     valor_pago = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
@@ -113,8 +114,28 @@ class VendaBalcaoSerializer(serializers.Serializer):
         user = self.context['request'].user
         itens_data = validated_data.get('itens')
         cliente_nome = validated_data.get('cliente', 'Consumidor Final')
+        cliente_id = validated_data.get('cliente_id')
         pagamento = validated_data.get('tipo_pagamento')
+
+        # LOGICA PRIMAVERA: Verificar sessão de caixa ativa
+        from caixa.models import SessaoCaixa
+        sessao_ativa = SessaoCaixa.objects.filter(operador=user, status='ABERTO').first()
         
+        if not sessao_ativa:
+            raise serializers.ValidationError("Não é possível realizar vendas sem uma sessão de caixa aberta. Por favor, faça a abertura do caixa.")
+
+        # LOGICA CONTA CORRENTE: Validar Cliente se for crédito
+        cliente_obj = None
+        if cliente_id:
+            from clientes.models import Cliente
+            cliente_obj = Cliente.objects.filter(id=cliente_id, farmacia=user.farmacia).first()
+
+        if pagamento == Pedido.FormaPagamento.CREDITO:
+            if not cliente_obj:
+                raise serializers.ValidationError("Venda a Crédito requer a seleção de um Cliente cadastrado.")
+            if cliente_obj.is_bloqueado:
+                raise serializers.ValidationError(f"O Cliente {cliente_obj.nome_completo} está BLOQUEADO para compras a crédito.")
+
         # Validação de Estoque antes de criar
         for item in itens_data:
             try:
@@ -127,9 +148,10 @@ class VendaBalcaoSerializer(serializers.Serializer):
         with transaction.atomic():
             # 1. Criar o Pedido
             pedido = Pedido.objects.create(
-                cliente=user, 
                 vendedor=user, 
                 farmacia=user.farmacia,
+                cliente_perfil=cliente_obj,
+                sessao_caixa=sessao_ativa, 
                 status=Pedido.StatusPedido.ENTREGUE,
                 forma_pagamento=pagamento,
                 pago=(pagamento != Pedido.FormaPagamento.CREDITO),
@@ -138,7 +160,7 @@ class VendaBalcaoSerializer(serializers.Serializer):
                 endereco_entrega="BALCÃO",
                 bairro="-", cidade="-",
                 telefone_contato="-",
-                observacoes=f"Venda Balcão - Cliente: {cliente_nome}",
+                observacoes=f"Venda Balcão - Cliente: {cliente_obj.nome_completo if cliente_obj else cliente_nome}",
                 receita_medica=validated_data.get('receita_medica')
             )
             
@@ -204,7 +226,31 @@ class VendaBalcaoSerializer(serializers.Serializer):
             
             pedido.calcular_total()
             
-            # Aqui no futuro: Criar Movimentação Financeira em 'financas'
+            # DERRUBANDO PRIMAVERA: Lógica de Conta Corrente e Limite
+            if pagamento == Pedido.FormaPagamento.CREDITO and cliente_obj:
+                # Verificar se excede limite
+                if (cliente_obj.saldo_atual + pedido.total) > cliente_obj.limite_credito:
+                    raise serializers.ValidationError(f"Limite de crédito excedido. Limite: {cliente_obj.limite_credito} MT | Dívida Atual: {cliente_obj.saldo_atual} MT")
+                
+                from clientes.models import MovimentoContaCorrente
+                import datetime
+                from django.utils import timezone
+                
+                # Registar Movimento de Débito
+                MovimentoContaCorrente.objects.create(
+                    cliente=cliente_obj,
+                    tipo='DEBITO',
+                    valor=pedido.total,
+                    pedido=pedido,
+                    descricao=f"Venda a Prazo nº {pedido.numero_pedido}",
+                    realizado_por=user,
+                    # Vencimento padrão: 30 dias (Primavera Style)
+                    data_vencimento=timezone.now().date() + datetime.timedelta(days=30)
+                )
+                
+                # Atualizar Saldo do Cliente
+                cliente_obj.saldo_atual += pedido.total
+                cliente_obj.save()
             
             return pedido
 

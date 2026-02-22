@@ -3,121 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teste de Login - GestorFarma</title>
+    <title>Teste de Login - GestorFarma (OFICIAL)</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background: #3b5998;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
-        }
-        button:hover {
-            background: #2d4373;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            white-space: pre-wrap;
-            font-family: monospace;
-            font-size: 12px;
-        }
-        .success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        .error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #0f172a; color: white; }
+        .container { background: #1e293b; padding: 40px; border-radius: 24px; shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5); border: 1px solid #334155; }
+        h1 { font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em; color: #38bdf8; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-cols: 1fr 1.5fr; gap: 30px; }
+        .credentials-box { background: #0f172a; padding: 20px; border-radius: 16px; border: 1px solid #334155; }
+        .credentials-box h3 { margin-top: 0; color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
+        .credential-item { margin-bottom: 15px; cursor: pointer; padding: 10px; border-radius: 8px; transition: all 0.2s; border: 1px solid transparent; }
+        .credential-item:hover { background: #1e293b; border-color: #38bdf8; }
+        .credential-item p { margin: 0; font-size: 14px; font-weight: bold; }
+        .credential-item span { font-size: 12px; color: #64748b; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; border-radius: 12px; color: white; outline: none; }
+        input:focus { border-color: #38bdf8; }
+        button { width: 100%; padding: 15px; background: #38bdf8; color: #0f172a; border: none; border-radius: 12px; cursor: pointer; font-weight: 900; text-transform: uppercase; margin-top: 10px; transition: all 0.2s; }
+        button:hover { background: #7dd3fc; transform: translateY(-2px); }
+        #result { margin-top: 20px; padding: 15px; border-radius: 12px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 11px; max-height: 300px; overflow-y: auto; background: #020617; }
+        .success { color: #4ade80; border: 1px solid #14532d; }
+        .error { color: #f87171; border: 1px solid #7f1d1d; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Teste de Login - GestorFarma</h1>
-        <p>Testando endpoint: <code>http://192.168.100.7:8000/api/v1/auth/login/</code></p>
+        <h1>GestorFarma Login Test</h1>
         
-        <input type="email" id="email" placeholder="Email" value="farmacia@teste.com">
-        <input type="password" id="password" placeholder="Senha" value="123456">
-        <button onclick="testarLogin()">TESTAR LOGIN</button>
-        
-        <div id="result"></div>
+        <div class="grid">
+            <div class="credentials-box">
+                <h3>Credenciais Oficiais</h3>
+                <div class="credential-item" onclick="fill('admin@gestorfarma.com', 'admin123')">
+                    <p>Administrador</p>
+                    <span>admin@gestorfarma.com / admin123</span>
+                </div>
+                <div class="credential-item" onclick="fill('farmacia@gestorfarma.com', 'farmacia123')">
+                    <p>Farmácia Teste</p>
+                    <span>farmacia@gestorfarma.com / farmacia123</span>
+                </div>
+                <div class="credential-item" onclick="fill('entregador@gestorfarma.com', 'entregador123')">
+                    <p>Entregador</p>
+                    <span>entregador@gestorfarma.com / entregador123</span>
+                </div>
+                <div class="credential-item" onclick="fill('cliente@gestorfarma.com', 'cliente123')">
+                    <p>Cliente</p>
+                    <span>cliente@gestorfarma.com / cliente123</span>
+                </div>
+            </div>
+
+            <div>
+                <input type="text" id="api_url" placeholder="URL da API" value="http://localhost:8000/api/v1/auth/login/">
+                <input type="email" id="email" placeholder="Email">
+                <input type="password" id="password" placeholder="Senha">
+                <button onclick="testarLogin()">Executar Autenticação</button>
+                <div id="result"></div>
+            </div>
+        </div>
     </div>
 
     <script>
+        function fill(email, pass) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = pass;
+        }
+
         async function testarLogin() {
+            const url = document.getElementById('api_url').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const resultDiv = document.getElementById('result');
             
-            resultDiv.textContent = 'Enviando requisição...';
+            resultDiv.textContent = 'Autenticando...';
             resultDiv.className = '';
             
             try {
-                console.log('Enviando:', { email, password: '***' });
-                
-                const response = await fetch('http://192.168.100.7:8000/api/v1/auth/login/', {
+                const response = await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
                 
-                console.log('Status:', response.status);
-                console.log('Headers:', [...response.headers.entries()]);
-                
-                const contentType = response.headers.get('content-type');
-                let data;
-                
-                if (contentType && contentType.includes('application/json')) {
-                    data = await response.json();
-                } else {
-                    data = await response.text();
-                }
-                
-                console.log('Resposta:', data);
+                const data = await response.json();
                 
                 if (response.ok) {
                     resultDiv.className = 'success';
-                    resultDiv.textContent = '✅ LOGIN SUCESSO!\n\n' + JSON.stringify(data, null, 2);
+                    resultDiv.textContent = '✅ SUCESSO!\n\n' + JSON.stringify(data, null, 2);
                 } else {
                     resultDiv.className = 'error';
-                    resultDiv.textContent = `❌ ERRO ${response.status}\n\n` + 
-                        (typeof data === 'string' ? data.substring(0, 500) : JSON.stringify(data, null, 2));
+                    resultDiv.textContent = `❌ ERRO ${response.status}\n\n` + JSON.stringify(data, null, 2);
                 }
             } catch (error) {
-                console.error('Erro:', error);
                 resultDiv.className = 'error';
-                resultDiv.textContent = '❌ ERRO DE REDE:\n\n' + error.message;
+                resultDiv.textContent = '❌ FALHA DE LIGAÇÃO:\n\n' + error.message;
             }
         }
     </script>

@@ -726,7 +726,7 @@ export default function ProdutosPage() {
                                         type="text"
                                         {...masterForm.register('nome', { required: true })}
                                         className="w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border text-lg font-medium"
-                                        placeholder="Ex: Amoxicilina 500mg"
+                                        placeholder="Digite o nome do produto..."
                                     />
                                 </div>
 
@@ -756,7 +756,7 @@ export default function ProdutosPage() {
                                         type="text"
                                         {...masterForm.register('fabricante')}
                                         className="w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
-                                        placeholder="Ex: Azevedos, Pfizer..."
+                                        placeholder="Nome do laboratório..."
                                     />
                                 </div>
 
@@ -777,10 +777,7 @@ export default function ProdutosPage() {
                                         className="w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
                                     >
                                         <option value="">Selecione...</option>
-                                        <option value="1">Medicamentos</option>
-                                        <option value="2">Suplementos</option>
-                                        <option value="3">Higiene</option>
-                                        {/* Idealmente buscaria categorias da API */}
+                                        {/* Categorias devem ser carregadas da API */}
                                     </select>
                                 </div>
 

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import api from '@/lib/api';
 import { formatPrice } from '@/lib/utils';
-import { ShoppingCart, Search, Trash2, Plus, CreditCard, User, Minus, UserPlus } from 'lucide-react';
+import { ShoppingCart, Search, Trash2, Plus, CreditCard, User, Minus, UserPlus, Lock, Unlock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Receipt } from '@/components/Receipt';
 import CadastroClienteModal from '@/components/CadastroClienteModal';
@@ -35,6 +36,7 @@ export default function VendasPOSPage() {
     const [resultados, setResultados] = useState<ProdutoEstoque[]>([]);
     const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
     const [cliente, setCliente] = useState(''); // Nome ou NUIT opcional
+    const [clienteId, setClienteId] = useState<number | null>(null);
     const [metodoPagamento, setMetodoPagamento] = useState('DINHEIRO');
     const [recibo, setRecibo] = useState<any>(null); // Dados do recibo após venda
     const [loadingBusca, setLoadingBusca] = useState(false);
@@ -48,7 +50,30 @@ export default function VendasPOSPage() {
     const [valorRecebido, setValorRecebido] = useState<string>('');
     const troco = parseFloat(valorRecebido) > 0 ? parseFloat(valorRecebido) - totalVenda : 0;
 
-    // Busca produtos no estoque local
+    // Verificação de Caixa Aberto (Logica Primavera)
+    const [caixaAberto, setCaixaAberto] = useState<boolean>(false);
+    const [verificandoCaixa, setVerificandoCaixa] = useState(true);
+
+    useEffect(() => {
+        verificarCaixa();
+    }, []);
+
+    const verificarCaixa = async () => {
+        try {
+            const res = await api.get('/caixa/sessao/');
+            if (res.data.status === 'SEM_SESSAO') {
+                setCaixaAberto(false);
+                toast.error('Caixa fechado! Abra o caixa para vender.', { duration: 5000 });
+            } else {
+                setCaixaAberto(true);
+            }
+        } catch (error: any) {
+            console.error('Erro ao verificar caixa:', error.response?.data || error.message);
+        } finally {
+            setVerificandoCaixa(false);
+        }
+    };
+
     useEffect(() => {
         const timer = setTimeout(() => {
             if (busca.length > 2) {
@@ -130,6 +155,7 @@ export default function VendasPOSPage() {
                     is_avulso: item.isAvulso
                 })),
                 cliente: cliente || 'Consumidor Final',
+                cliente_id: clienteId, // DERRUBANDO PRIMAVERA: Vínculo Real
                 tipo_pagamento: metodoPagamento,
                 valor_pago: parseFloat(valorRecebido) || totalVenda,
                 troco: troco > 0 ? troco : 0
@@ -154,6 +180,7 @@ export default function VendasPOSPage() {
             setRecibo(res.data);
             setCarrinho([]);
             setCliente('');
+            setClienteId(null);
             setReceitaFile(null);
             setValorRecebido('');
         } catch (error: any) {
@@ -285,6 +312,40 @@ export default function VendasPOSPage() {
                 </div>
             </div>
 
+            {/* Overlay de Loading Inicial (Superando Primavera) */}
+            {verificandoCaixa && (
+                <div className="fixed inset-0 z-[100] bg-white flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Validando Sessão de Caixa...</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Bloqueio de Caixa Fechado (Logica Primavera) */}
+            {!caixaAberto && !verificandoCaixa && (
+                <div className="fixed inset-0 z-[60] bg-white/60 backdrop-blur-md flex flex-col items-center justify-center text-center p-6">
+                    <div className="bg-white p-12 rounded-[40px] shadow-2xl border border-gray-100 max-w-md space-y-6">
+                        <div className="w-24 h-24 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                            <Lock size={48} />
+                        </div>
+                        <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tighter">Terminal Bloqueado</h2>
+                        <p className="text-gray-500 font-medium leading-relaxed">
+                            Este terminal de vendas está bloqueado porque não existe um turno de caixa aberto para você.
+                        </p>
+                        <div className="pt-4">
+                            <Link
+                                href="/dashboard/caixa"
+                                className="inline-flex items-center gap-2 px-8 py-4 bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-all shadow-xl uppercase tracking-widest text-xs"
+                            >
+                                <Unlock size={18} /> Abrir Meu Caixa
+                            </Link>
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Padrão Fiscal GestorFarma v1.0</p>
+                    </div>
+                </div>
+            )}
+
             {/* Área Direita: Carrinho e Checkout */}
             <div className="w-96 bg-white border-l shadow-xl flex flex-col h-full rounded-l-2xl">
                 <div className="p-3 bg-gray-50 border-b space-y-2">
@@ -304,6 +365,7 @@ export default function VendasPOSPage() {
                                 value={cliente}
                                 onChange={async (e) => {
                                     setCliente(e.target.value);
+                                    if (e.target.value === '') setClienteId(null);
                                     if (e.target.value.length > 2) {
                                         try {
                                             const res = await api.get(`/clientes/?search=${e.target.value}`);
@@ -319,10 +381,15 @@ export default function VendasPOSPage() {
                                     {sugestoesClientes.map((c: any) => (
                                         <button
                                             key={c.id}
-                                            onClick={() => { setCliente(c.nome_completo || ''); setSugestoesClientes([]); }}
-                                            className="w-full text-left p-2 hover:bg-blue-50 border-b border-gray-50 last:border-0"
+                                            onClick={() => {
+                                                setCliente(c.nome_completo || '');
+                                                setClienteId(c.id);
+                                                setSugestoesClientes([]);
+                                            }}
+                                            className="w-full text-left p-3 hover:bg-blue-50 border-b border-gray-50 last:border-0 flex justify-between items-center"
                                         >
-                                            <span className="font-bold text-[10px]">{c.nome_completo}</span>
+                                            <span className="font-bold text-[10px] uppercase">{c.nome_completo}</span>
+                                            {parseFloat(c.saldo_atual) > 0 && <span className="text-[8px] bg-red-100 text-red-600 px-1 rounded font-black">DEVE</span>}
                                         </button>
                                     ))}
                                 </div>

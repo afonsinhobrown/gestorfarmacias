@@ -32,7 +32,16 @@ class Pedido(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='pedidos',
-        verbose_name=_('cliente')
+        verbose_name=_('cliente'),
+        null=True, blank=True
+    )
+    # DERRUBANDO PRIMAVERA: Vínculo com perfil de cliente para conta corrente
+    cliente_perfil = models.ForeignKey(
+        'clientes.Cliente',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pedidos_perfil'
     )
     farmacia = models.ForeignKey(
         Farmacia,
@@ -80,6 +89,16 @@ class Pedido(models.Model):
         blank=True,
         related_name='vendas_realizadas',
         verbose_name=_('vendedor')
+    )
+    
+    # Sessão de Caixa (Logica Primavera)
+    sessao_caixa = models.ForeignKey(
+        'caixa.SessaoCaixa',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='vendas',
+        verbose_name=_('sessão de caixa')
     )
     
     # Entrega

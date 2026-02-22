@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'farmacias',
     'produtos',
     'pedidos',
+    'compras',
     'entregas',
     'pagamentos',
     'financeiro',
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     'clientes',
     'suporte',
     'prioridade',  # Sistema de prioridade/visibilidade
+    'caixa',       # Gestão de caixas e turnos
 ]
 
 MIDDLEWARE = [

@@ -50,6 +50,11 @@ class Cliente(models.Model):
     # Observações
     observacoes = models.TextField(_('observações'), blank=True)
     
+    # Gestão de Crédito (DERRUBANDO PRIMAVERA)
+    limite_credito = models.DecimalField(_('limite de crédito'), max_digits=12, decimal_places=2, default=0.00)
+    saldo_atual = models.DecimalField(_('saldo atual (Dívida)'), max_digits=12, decimal_places=2, default=0.00)
+    is_bloqueado = models.BooleanField(_('bloqueado para crédito'), default=False)
+    
     # Metadata
     data_cadastro = models.DateTimeField(_('data de cadastro'), auto_now_add=True)
     data_atualizacao = models.DateTimeField(_('data de atualização'), auto_now=True)
@@ -63,3 +68,31 @@ class Cliente(models.Model):
     
     def __str__(self):
         return f"{self.nome_completo} - {self.telefone}"
+
+class MovimentoContaCorrente(models.Model):
+    """Registo de débitos e créditos na conta corrente do cliente."""
+    
+    class TipoMovimento(models.TextChoices):
+        DEBITO = 'DEBITO', _('Débito (Venda a Prazo)')
+        CREDITO = 'CREDITO', _('Crédito (Pagamento/Recebimento)')
+        AJUSTE = 'AJUSTE', _('Ajuste de Saldo')
+
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='movimentos_cc')
+    tipo = models.CharField(max_length=20, choices=TipoMovimento.choices)
+    valor = models.DecimalField(max_digits=12, decimal_places=2)
+    data_movimento = models.DateTimeField(auto_now_add=True)
+    
+    # Vínculo opcional com Pedido
+    pedido = models.ForeignKey('pedidos.Pedido', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    descricao = models.CharField(max_length=255)
+    realizado_por = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True)
+
+    # DERRUBANDO PRIMAVERA: Lógica de Idade do Saldo (Data de Vencimento)
+    data_vencimento = models.DateField(null=True, blank=True)
+    is_liquidado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = _('movimento de conta corrente')
+        verbose_name_plural = _('movimentos de conta corrente')
+        ordering = ['-data_movimento']
