@@ -55,7 +55,6 @@ class TokenPairSerializer(serializers.Serializer):
 
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .serializers import UserSerializer
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Serializer customizado que aceita email em vez de username e retorna dados do usuário."""
