@@ -3,12 +3,18 @@ import axios from 'axios';
 const getBaseURL = () => {
     let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-    // Normalização: Remover ponto final acidental (ex: .com.)
-    url = url.replace(/\.+$/, '');
+    // 1. Remover espaços e pontos finais acidentais
+    url = url.trim().replace(/\.+$/, '');
 
-    // Garantir que termina com /api/v1 se não estiver presente
-    if (!url.includes('/api/v1')) {
-        url = url.endsWith('/') ? `${url}api/v1` : `${url}/api/v1`;
+    // 2. Remover barra final para padronizar
+    url = url.replace(/\/+$/, '');
+
+    // 3. Se o URL não contém /api/v1, vamos adicioná-lo
+    // Mas antes, removemos um /api ou /api/v solitário no fim para não duplicar
+    if (!url.endsWith('/api/v1')) {
+        url = url.replace(/\/api\/v$/, '');
+        url = url.replace(/\/api$/, '');
+        url = `${url}/api/v1`;
     }
 
     return url;
